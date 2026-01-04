@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-01-04T12:00:00Z",
+  "changelog": "Initial release with 2026 shortlists",
+  "years": [
+    {
+      "id": "2026",
+      "filename": "oscars2026.json",
+      "nominationsAnnounced": false,
+      "filmCount": 150
+    },
+    {
+      "id": "2025",
+      "filename": "oscars2025.json",
+      "nominationsAnnounced": true,
+      "filmCount": 200
+    },
+    {
+      "id": "2024",
+      "filename": "oscars2024.json",
+      "nominationsAnnounced": true,
+      "filmCount": 180
+    }
+  ]
+}
