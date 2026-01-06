@@ -1,7 +1,7 @@
 {
-  "version": "1.0.8",
+  "version": "1.0.9",
   "lastUpdated": "2026-01-04T12:00:00Z",
-  "changelog": "Updated Original Songs",
+  "changelog": "Fixed some database discrepancies. Thank you for flagging!"
   "years": [
     {
       "id": "2026",
