@@ -1,13 +1,13 @@
 {
-  "version": "1.1.0",
-  "lastUpdated": "2026-01-04T12:00:00Z",
-  "changelog": "Fixed some database discrepancies. Thank you for flagging!",
+  "version": "1.1.1",
+  "lastUpdated": "2026-01-13T19:26:48.193Z",
+  "changelog": "Fixed: Four films were picking up wrong info",
   "years": [
     {
       "id": "2026",
       "filename": "oscars2026.json",
       "nominationsAnnounced": false,
-      "filmCount": 150
+      "filmCount": 113
     },
     {
       "id": "2025",

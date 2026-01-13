@@ -1,0 +1,12 @@
+{
+  "name": "cinetrack-editor",
+  "version": "1.0.0",
+  "description": "Visual editor for CineTrack Oscar nomination data",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
