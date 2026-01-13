@@ -367,6 +367,144 @@
     .song-chip.nominated .song-film {
       color: rgba(255,255,255,0.8);
     }
+
+    /* TMDB Lookup Mode Styles */
+    .tmdb-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .tmdb-header {
+      margin-bottom: 2rem;
+    }
+    .tmdb-header h2 {
+      color: #e94560;
+      margin-bottom: 0.5rem;
+    }
+    .tmdb-header p {
+      color: #aaa;
+    }
+    .tmdb-progress {
+      background: #0f3460;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .tmdb-progress-bar {
+      height: 8px;
+      background: #16213e;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+    .tmdb-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #e94560, #ff6b6b);
+      transition: width 0.3s;
+    }
+    .tmdb-current-film {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .tmdb-current-film h3 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .tmdb-search-box {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .tmdb-search-box input {
+      flex: 1;
+    }
+    .tmdb-results {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .tmdb-result {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem;
+      background: #0f3460;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .tmdb-result:hover {
+      border-color: #e94560;
+    }
+    .tmdb-result img {
+      width: 60px;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #16213e;
+    }
+    .tmdb-result-info {
+      flex: 1;
+    }
+    .tmdb-result-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .tmdb-result-year {
+      color: #e94560;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+    .tmdb-result-overview {
+      font-size: 0.85rem;
+      color: #aaa;
+      line-height: 1.4;
+    }
+    .tmdb-result-id {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 0.5rem;
+    }
+    .tmdb-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .tmdb-film-list {
+      margin-top: 2rem;
+    }
+    .tmdb-film-list h4 {
+      color: #aaa;
+      margin-bottom: 1rem;
+    }
+    .tmdb-missing-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      background: #0f3460;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+    }
+    .tmdb-missing-item.current {
+      background: #e94560;
+    }
+    .tmdb-missing-item.done {
+      background: #2d6a4f;
+    }
+    .tmdb-no-poster {
+      width: 60px;
+      height: 90px;
+      background: #16213e;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      font-size: 0.7rem;
+    }
   </style>
 </head>
 <body>
@@ -376,6 +514,7 @@
     <div class="mode-toggle">
       <button id="filmModeBtn" class="active" onclick="setMode('film')">Film Mode</button>
       <button id="nomModeBtn" onclick="setMode('nomination')">Nomination Mode</button>
+      <button id="tmdbModeBtn" onclick="setMode('tmdb')">Fix IDs</button>
     </div>
     <span id="statusMsg" class="status" style="display: none;"></span>
   </header>
@@ -483,6 +622,7 @@
       currentMode = mode;
       document.getElementById('filmModeBtn').classList.toggle('active', mode === 'film');
       document.getElementById('nomModeBtn').classList.toggle('active', mode === 'nomination');
+      document.getElementById('tmdbModeBtn').classList.toggle('active', mode === 'tmdb');
 
       const container = document.getElementById('mainContainer');
       const sidebar = document.getElementById('sidebar');
@@ -492,10 +632,14 @@
         sidebar.style.display = 'flex';
         renderFilmList();
         document.getElementById('editor').innerHTML = '<div class="empty-state">Select a film to edit</div>';
-      } else {
+      } else if (mode === 'nomination') {
         container.classList.add('nomination-mode');
         sidebar.style.display = 'none';
         renderNominationMode();
+      } else if (mode === 'tmdb') {
+        container.classList.add('nomination-mode');
+        sidebar.style.display = 'none';
+        renderTmdbMode();
       }
     }
 
@@ -1164,6 +1308,182 @@
         document.querySelectorAll('.dropdown-list').forEach(d => d.classList.remove('open'));
       }
     });
+
+    // ============ TMDB LOOKUP MODE FUNCTIONS ============
+
+    let tmdbCurrentIndex = 0;
+    let tmdbSearchResults = [];
+    let tmdbFixedIds = new Set(); // Track which films we've fixed in this session
+
+    function getFilmsMissingTmdbId() {
+      return films.filter(f => !f.tmdbId).sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    function renderTmdbMode() {
+      const editor = document.getElementById('editor');
+      const missingFilms = getFilmsMissingTmdbId();
+      const totalFilms = films.length;
+      const fixedCount = totalFilms - missingFilms.length;
+
+      if (missingFilms.length === 0) {
+        editor.innerHTML = `
+          <div class="tmdb-container">
+            <div class="tmdb-header">
+              <h2>All Films Have TMDB IDs!</h2>
+              <p>Every film in the database has a valid TMDB ID. No action needed.</p>
+            </div>
+            <div class="tmdb-progress">
+              <div><strong>${fixedCount}</strong> of ${totalFilms} films have TMDB IDs (100%)</div>
+              <div class="tmdb-progress-bar">
+                <div class="tmdb-progress-fill" style="width: 100%"></div>
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const currentFilm = missingFilms[tmdbCurrentIndex] || missingFilms[0];
+      tmdbCurrentIndex = Math.min(tmdbCurrentIndex, missingFilms.length - 1);
+
+      const progressPercent = (fixedCount / totalFilms * 100).toFixed(1);
+
+      editor.innerHTML = `
+        <div class="tmdb-container">
+          <div class="tmdb-header">
+            <h2>Fix Missing TMDB IDs</h2>
+            <p>Search TMDB and assign the correct movie ID to each film.</p>
+          </div>
+
+          <div class="tmdb-progress">
+            <div><strong>${fixedCount}</strong> of ${totalFilms} films have TMDB IDs (${progressPercent}%) &mdash; <strong>${missingFilms.length}</strong> remaining</div>
+            <div class="tmdb-progress-bar">
+              <div class="tmdb-progress-fill" style="width: ${progressPercent}%"></div>
+            </div>
+          </div>
+
+          <div class="tmdb-current-film">
+            <h3>${currentFilm.title}</h3>
+            <div class="tmdb-search-box">
+              <input type="text" id="tmdbSearchInput" value="${currentFilm.title}"
+                     onkeypress="if(event.key==='Enter') searchTmdb()">
+              <button onclick="searchTmdb()">Search TMDB</button>
+            </div>
+            <div id="tmdbResults" class="tmdb-results">
+              <p style="color: #666;">Click "Search TMDB" to find matching movies</p>
+            </div>
+            <div class="tmdb-actions">
+              <button class="secondary" onclick="skipTmdbFilm()">Skip This Film</button>
+              <button class="secondary" onclick="prevTmdbFilm()">Previous</button>
+              <button class="secondary" onclick="nextTmdbFilm()">Next</button>
+            </div>
+          </div>
+
+          <div class="tmdb-film-list">
+            <h4>Films Missing TMDB ID (${missingFilms.length})</h4>
+            <div style="max-height: 300px; overflow-y: auto;">
+              ${missingFilms.map((f, i) => `
+                <div class="tmdb-missing-item ${i === tmdbCurrentIndex ? 'current' : ''} ${tmdbFixedIds.has(f.id) ? 'done' : ''}"
+                     onclick="jumpToTmdbFilm(${i})">
+                  <span>${f.title}</span>
+                  ${tmdbFixedIds.has(f.id) ? '<span style="color: #8f8;">Fixed (unsaved)</span>' : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+        <button class="save-float" onclick="saveFilms()">Save All Changes</button>
+      `;
+
+      // Auto-search when rendering
+      searchTmdb();
+    }
+
+    async function searchTmdb() {
+      const query = document.getElementById('tmdbSearchInput').value.trim();
+      if (!query) return;
+
+      const resultsDiv = document.getElementById('tmdbResults');
+      resultsDiv.innerHTML = '<p style="color: #aaa;">Searching...</p>';
+
+      try {
+        const res = await fetch(`/api/tmdb/search?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        tmdbSearchResults = data.results || [];
+
+        if (tmdbSearchResults.length === 0) {
+          resultsDiv.innerHTML = '<p style="color: #e94560;">No results found. Try a different search term.</p>';
+          return;
+        }
+
+        resultsDiv.innerHTML = tmdbSearchResults.map((movie, i) => `
+          <div class="tmdb-result" onclick="applyTmdbId(${movie.id})">
+            ${movie.poster
+              ? `<img src="${movie.poster}" alt="${movie.title}">`
+              : `<div class="tmdb-no-poster">No Poster</div>`}
+            <div class="tmdb-result-info">
+              <div class="tmdb-result-title">${movie.title}</div>
+              <div class="tmdb-result-year">${movie.year} &middot; ${movie.director}</div>
+              <div class="tmdb-result-overview">${movie.overview}</div>
+              <div class="tmdb-result-id">TMDB ID: ${movie.id}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        resultsDiv.innerHTML = `<p style="color: #e94560;">Error: ${e.message}</p>`;
+      }
+    }
+
+    function applyTmdbId(tmdbId) {
+      const missingFilms = getFilmsMissingTmdbId();
+      const currentFilm = missingFilms[tmdbCurrentIndex];
+
+      if (currentFilm) {
+        // Find and update the film in the main films array
+        const filmIndex = films.findIndex(f => f.id === currentFilm.id);
+        if (filmIndex >= 0) {
+          films[filmIndex].tmdbId = tmdbId;
+          tmdbFixedIds.add(currentFilm.id);
+          showStatus(`Set TMDB ID ${tmdbId} for "${currentFilm.title}"`, 'success');
+
+          // Move to next film
+          nextTmdbFilm();
+        }
+      }
+    }
+
+    function skipTmdbFilm() {
+      nextTmdbFilm();
+    }
+
+    function prevTmdbFilm() {
+      const missingFilms = getFilmsMissingTmdbId();
+      if (tmdbCurrentIndex > 0) {
+        tmdbCurrentIndex--;
+      } else {
+        tmdbCurrentIndex = missingFilms.length - 1;
+      }
+      renderTmdbMode();
+    }
+
+    function nextTmdbFilm() {
+      const missingFilms = getFilmsMissingTmdbId();
+      if (missingFilms.length === 0) {
+        renderTmdbMode();
+        return;
+      }
+      if (tmdbCurrentIndex < missingFilms.length - 1) {
+        tmdbCurrentIndex++;
+      } else {
+        tmdbCurrentIndex = 0;
+      }
+      renderTmdbMode();
+    }
+
+    function jumpToTmdbFilm(index) {
+      tmdbCurrentIndex = index;
+      renderTmdbMode();
+    }
 
     // ============ SHARED FUNCTIONS ============
 
