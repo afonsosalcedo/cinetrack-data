@@ -740,7 +740,7 @@
   },
   {
     "id": "00000001-0000-0000-0000-000000000042",
-    "title": "Belén",
+    "title": "Bel\u00e9n",
     "runtime": 0,
     "watched": false,
     "releaseDate": "",
@@ -933,7 +933,9 @@
     "shortlistSound": false,
     "shortlistVisualEffects": false,
     "bestactor": [
-      "Ethan Hawke"
+      {
+        "actorName": "Ethan Hawke"
+      }
     ],
     "bestactress": [],
     "bestsupportingactor": [],
@@ -984,7 +986,9 @@
     "shortlistVisualEffects": false,
     "bestactor": [],
     "bestactress": [
-      "Emma Stone"
+      {
+        "actorName": "Emma Stone"
+      }
     ],
     "bestsupportingactor": [],
     "bestsupportingactress": [],
@@ -993,7 +997,7 @@
   },
   {
     "id": "00000001-0000-0000-0000-000000000099",
-    "title": "Butcher’s Stain",
+    "title": "Butcher\u2019s Stain",
     "runtime": 0,
     "watched": false,
     "releaseDate": "",
@@ -1635,7 +1639,7 @@
   },
   {
     "id": "00000001-0000-0000-0000-000000000103",
-    "title": "Dad’s Not Home",
+    "title": "Dad\u2019s Not Home",
     "runtime": 0,
     "watched": false,
     "releaseDate": "",
@@ -1788,7 +1792,7 @@
   },
   {
     "id": "00000001-0000-0000-0000-000000000074",
-    "title": "Éiru",
+    "title": "\u00c9iru",
     "runtime": 0,
     "watched": false,
     "releaseDate": "",
@@ -2130,7 +2134,9 @@
     "bestactor": [],
     "bestactress": [],
     "bestsupportingactor": [
-      "Jacob Elordi"
+      {
+        "actorName": "Jacob Elordi"
+      }
     ],
     "bestsupportingactress": [],
     "bestoriginalsong": []
@@ -2179,7 +2185,9 @@
     "shortlistVisualEffects": false,
     "bestactor": [],
     "bestactress": [
-      "Jessie Buckley"
+      {
+        "actorName": "Jessie Buckley"
+      }
     ],
     "bestsupportingactor": [],
     "bestsupportingactress": [],
@@ -2438,7 +2446,7 @@
   },
   {
     "id": "00000001-0000-0000-0000-000000000079",
-    "title": "Hurikán",
+    "title": "Hurik\u00e1n",
     "runtime": 0,
     "watched": false,
     "releaseDate": "",
@@ -2578,7 +2586,9 @@
     "shortlistVisualEffects": false,
     "bestactor": [],
     "bestactress": [
-      "Rose Byrne"
+      {
+        "actorName": "Rose Byrne"
+      }
     ],
     "bestsupportingactor": [],
     "bestsupportingactress": [],
@@ -2635,7 +2645,7 @@
   },
   {
     "id": "00000001-0000-0000-0000-000000000102",
-    "title": "Jane Austen’s Period Drama",
+    "title": "Jane Austen\u2019s Period Drama",
     "runtime": 0,
     "watched": false,
     "releaseDate": "",
@@ -3033,7 +3043,7 @@
   },
   {
     "id": "00000001-0000-0000-0000-000000000125",
-    "title": "Little Amélie or The Character of Rain",
+    "title": "Little Am\u00e9lie or The Character of Rain",
     "runtime": 0,
     "watched": false,
     "releaseDate": "",
@@ -3122,7 +3132,9 @@
     "shortlistSound": false,
     "shortlistVisualEffects": false,
     "bestactor": [
-      "Timothée Chalamet"
+      {
+        "actorName": "Timoth\u00e9e Chalamet"
+      }
     ],
     "bestactress": [],
     "bestsupportingactor": [],
@@ -3279,7 +3291,7 @@
   },
   {
     "id": "00000001-0000-0000-0000-000000000037",
-    "title": "My Undesirable Friends: Part I – Last Air in Moscow",
+    "title": "My Undesirable Friends: Part I \u2013 Last Air in Moscow",
     "runtime": 0,
     "watched": false,
     "releaseDate": "",
@@ -3565,15 +3577,23 @@
     "shortlistSound": true,
     "shortlistVisualEffects": false,
     "bestactor": [
-      "Leonardo DiCaprio"
+      {
+        "actorName": "Leonardo DiCaprio"
+      }
     ],
     "bestactress": [],
     "bestsupportingactor": [
-      "Benicio del Toro",
-      "Sean Penn"
+      {
+        "actorName": "Benicio del Toro"
+      },
+      {
+        "actorName": "Sean Penn"
+      }
     ],
     "bestsupportingactress": [
-      "Teyana Taylor"
+      {
+        "actorName": "Teyana Taylor"
+      }
     ],
     "bestoriginalsong": [],
     "tmdbId": 1054867
@@ -3874,7 +3894,7 @@
   },
   {
     "id": "00000001-0000-0000-0000-000000000114",
-    "title": "Rovina’s Choice",
+    "title": "Rovina\u2019s Choice",
     "runtime": 0,
     "watched": false,
     "releaseDate": "",
@@ -4015,14 +4035,22 @@
     "shortlistVisualEffects": false,
     "bestactor": [],
     "bestactress": [
-      "Renate Reinsve"
+      {
+        "actorName": "Renate Reinsve"
+      }
     ],
     "bestsupportingactor": [
-      "Stellan Skarsgård"
+      {
+        "actorName": "Stellan Skarsg\u00e5rd"
+      }
     ],
     "bestsupportingactress": [
-      "Elle Fanning",
-      "Inga Ibsdotter Lilleaas"
+      {
+        "actorName": "Elle Fanning"
+      },
+      {
+        "actorName": "Inga Ibsdotter Lilleaas"
+      }
     ],
     "bestoriginalsong": []
   },
@@ -4069,14 +4097,20 @@
     "shortlistSound": true,
     "shortlistVisualEffects": true,
     "bestactor": [
-      "Michael B. Jordan"
+      {
+        "actorName": "Michael B. Jordan"
+      }
     ],
     "bestactress": [],
     "bestsupportingactor": [
-      "Delroy Lindo"
+      {
+        "actorName": "Delroy Lindo"
+      }
     ],
     "bestsupportingactress": [
-      "Wunmi Mosaku"
+      {
+        "actorName": "Wunmi Mosaku"
+      }
     ],
     "bestoriginalsong": [
       {
@@ -4093,7 +4127,7 @@
   },
   {
     "id": "00000001-0000-0000-0000-000000000005",
-    "title": "Sirāt",
+    "title": "Sir\u0101t",
     "runtime": 0,
     "watched": false,
     "releaseDate": "",
@@ -4233,7 +4267,9 @@
     "shortlistVisualEffects": false,
     "bestactor": [],
     "bestactress": [
-      "Kate Hudson"
+      {
+        "actorName": "Kate Hudson"
+      }
     ],
     "bestsupportingactor": [],
     "bestsupportingactress": [],
@@ -5072,7 +5108,9 @@
     "shortlistSound": false,
     "shortlistVisualEffects": false,
     "bestactor": [
-      "Wagner Moura"
+      {
+        "actorName": "Wagner Moura"
+      }
     ],
     "bestactress": [],
     "bestsupportingactor": [],
@@ -5780,7 +5818,9 @@
     "bestactress": [],
     "bestsupportingactor": [],
     "bestsupportingactress": [
-      "Amy Madigan"
+      {
+        "actorName": "Amy Madigan"
+      }
     ],
     "bestoriginalsong": [],
     "tmdbId": 1078605
