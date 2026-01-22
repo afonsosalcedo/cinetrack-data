@@ -635,7 +635,8 @@
     "bestoriginalsong": [
       {
         "songTitle": "Dream As One",
-        "songwriters": []
+        "songwriters": [],
+        "nominated": false
       }
     ],
     "tmdbId": 83533
@@ -885,7 +886,8 @@
     "bestoriginalsong": [
       {
         "songTitle": "Dying To Live",
-        "songwriters": []
+        "songwriters": [],
+        "nominated": false
       }
     ],
     "tmdbId": 1465591
@@ -1535,7 +1537,8 @@
     "bestoriginalsong": [
       {
         "songTitle": "Salt Then Sour Then Sweet",
-        "songwriters": []
+        "songwriters": [],
+        "nominated": false
       }
     ]
   },
@@ -1986,7 +1989,8 @@
     "bestoriginalsong": [
       {
         "songTitle": "Drive",
-        "songwriters": []
+        "songwriters": [],
+        "nominated": false
       }
     ]
   },
@@ -2341,7 +2345,8 @@
     "bestoriginalsong": [
       {
         "songTitle": "Highest 2 Lowest",
-        "songwriters": []
+        "songwriters": [],
+        "nominated": false
       }
     ],
     "tmdbId": 1242434
@@ -4120,7 +4125,8 @@
       },
       {
         "songTitle": "Last Time (I Seen The Sun)",
-        "songwriters": []
+        "songwriters": [],
+        "nominated": false
       }
     ],
     "tmdbId": 1233413
@@ -4570,7 +4576,8 @@
     "bestoriginalsong": [
       {
         "songTitle": "Our Love",
-        "songwriters": []
+        "songwriters": [],
+        "nominated": false
       }
     ],
     "tmdbId": 1122099
@@ -5516,7 +5523,8 @@
     "bestoriginalsong": [
       {
         "songTitle": "As Alive As You Need Me To Be",
-        "songwriters": []
+        "songwriters": [],
+        "nominated": false
       }
     ],
     "tmdbId": 533533
@@ -5667,7 +5675,7 @@
     "bestsupportingactress": [],
     "bestoriginalsong": [
       {
-        "songTitle": "Sweet Dreas Of Joy",
+        "songTitle": "Sweet Dreams of Joy",
         "songwriters": [],
         "nominated": true
       }
@@ -5874,11 +5882,13 @@
     "bestoriginalsong": [
       {
         "songTitle": "The Girl In The Bubble",
-        "songwriters": []
+        "songwriters": [],
+        "nominated": false
       },
       {
         "songTitle": "No Place Like Home",
-        "songwriters": []
+        "songwriters": [],
+        "nominated": false
       }
     ],
     "tmdbId": 967941
