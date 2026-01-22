@@ -1738,7 +1738,9 @@
     "bestoriginalsong": [
       {
         "songTitle": "Dear Me",
-        "songwriters": [],
+        "songwriters": [
+          "Diane Warren"
+        ],
         "nominated": true
       }
     ],
@@ -2893,7 +2895,10 @@
     "bestoriginalsong": [
       {
         "songTitle": "Golden",
-        "songwriters": [],
+        "songwriters": [
+          "EJAE",
+          "Mark Sonnenblick"
+        ],
         "nominated": true
       }
     ],
@@ -4120,7 +4125,10 @@
     "bestoriginalsong": [
       {
         "songTitle": "I Lied To You",
-        "songwriters": [],
+        "songwriters": [
+          "Raphael Saadiq",
+          "Ludwig G\u00f6ransson"
+        ],
         "nominated": true
       },
       {
@@ -5468,7 +5476,10 @@
     "bestoriginalsong": [
       {
         "songTitle": "Train Dreams",
-        "songwriters": [],
+        "songwriters": [
+          "Nick Cave",
+          "Bryce Dessner"
+        ],
         "nominated": true
       }
     ],
@@ -5676,7 +5687,9 @@
     "bestoriginalsong": [
       {
         "songTitle": "Sweet Dreams of Joy",
-        "songwriters": [],
+        "songwriters": [
+          "Nicholas Pike"
+        ],
         "nominated": true
       }
     ],
