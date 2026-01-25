@@ -853,6 +853,7 @@
   {
     "id": "d8102e9d-64e8-4f1b-a80c-a1f0ea5e6af3",
     "title": "The After",
+    "tmdbId": 1169455,
     "runtime": 18,
     "watched": false,
     "releaseDate": "TBD",
@@ -890,6 +891,7 @@
   {
     "id": "aa23a618-c865-4368-9634-102ddf67c23f",
     "title": "Invincible",
+    "tmdbId": 1084765,
     "runtime": 30,
     "watched": false,
     "releaseDate": "TBD",
@@ -967,6 +969,7 @@
   {
     "id": "119fbcb1-4884-435a-bbd4-3575baacdfa3",
     "title": "Red, White and Blue",
+    "tmdbId": 1194636,
     "runtime": 23,
     "watched": false,
     "releaseDate": "2023-09-30",
@@ -1160,7 +1163,8 @@
   },
   {
     "id": "3fba6f15-2af6-44e2-b03e-fe0ff1a8d839",
-    "title": "Pachyderme",
+    "title": "Pachyderm",
+    "tmdbId": 950822,
     "runtime": 11,
     "watched": false,
     "releaseDate": "TBD",
