@@ -8,7 +8,21 @@ const PORT = 3000;
 const DATA_DIR = path.join(__dirname, '..');
 
 // TMDB API configuration
-const TMDB_API_KEY = '120d0c87f20d3451002b9ce962943cec';
+// The key is read from the environment or from editor/.env (gitignored).
+// Never commit it: this repository is public.
+function loadEnvFile() {
+  const envPath = path.join(__dirname, '.env');
+  if (!fs.existsSync(envPath)) return;
+  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (match && process.env[match[1]] === undefined) process.env[match[1]] = match[2];
+  }
+}
+loadEnvFile();
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+if (!TMDB_API_KEY) {
+  console.warn('\n  TMDB_API_KEY is not set. Add it to editor/.env; TMDB search will fail until then.\n');
+}
 const TMDB_BASE_URL = 'api.themoviedb.org';
 
 app.use(express.json({ limit: '10mb' }));
