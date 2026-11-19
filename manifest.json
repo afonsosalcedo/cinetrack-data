@@ -7,19 +7,23 @@
       "id": "2026",
       "filename": "oscars2026.json",
       "nominationsAnnounced": false,
-      "filmCount": 119
+      "filmCount": 119,
+      "ceremonyDate": "2026-03-15T16:00:00-07:00",
+      "nominationsDate": "2026-01-22T05:30:00-08:00"
     },
     {
       "id": "2025",
       "filename": "oscars2025.json",
       "nominationsAnnounced": true,
-      "filmCount": 200
+      "filmCount": 200,
+      "ceremonyDate": "2025-03-02T16:00:00-08:00"
     },
     {
       "id": "2024",
       "filename": "oscars2024.json",
       "nominationsAnnounced": true,
-      "filmCount": 180
+      "filmCount": 180,
+      "ceremonyDate": "2024-03-10T16:00:00-07:00"
     }
   ]
 }
