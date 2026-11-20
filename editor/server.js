@@ -2,10 +2,15 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const { validateFilms, validateManifest, YEAR_PATTERN } = require('./validate');
 
 const app = express();
-const PORT = 3000;
-const DATA_DIR = path.join(__dirname, '..');
+// Both can be overridden to rehearse against a copy of the data:
+//   CINETRACK_DATA_DIR=/path/to/copy PORT=3001 npm start
+const PORT = parseInt(process.env.PORT, 10) || 3000;
+const DATA_DIR = process.env.CINETRACK_DATA_DIR
+  ? path.resolve(process.env.CINETRACK_DATA_DIR)
+  : path.join(__dirname, '..');
 
 // TMDB API configuration
 // The key is read from the environment or from editor/.env (gitignored).
@@ -25,6 +30,18 @@ if (!TMDB_API_KEY) {
 }
 const TMDB_BASE_URL = 'api.themoviedb.org';
 
+// Writes to a temporary file first and then swaps it in, so a crash or a full
+// disk can never leave a half-written season file behind.
+function writeJsonAtomic(filepath, value) {
+  const temp = `${filepath}.tmp-${process.pid}`;
+  fs.writeFileSync(temp, JSON.stringify(value, null, 2) + '\n');
+  fs.renameSync(temp, filepath);
+}
+
+function readManifest() {
+  return JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'manifest.json'), 'utf8'));
+}
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(__dirname));
 
@@ -41,8 +58,10 @@ app.get('/api/manifest', (req, res) => {
 // Get films for a specific year
 app.get('/api/films/:year', (req, res) => {
   try {
-    const filename = `oscars${req.params.year}.json`;
-    const filepath = path.join(DATA_DIR, filename);
+    if (!YEAR_PATTERN.test(req.params.year)) {
+      return res.status(400).json({ error: 'Year must be four digits' });
+    }
+    const filepath = path.join(DATA_DIR, `oscars${req.params.year}.json`);
     if (!fs.existsSync(filepath)) {
       return res.status(404).json({ error: 'Year not found' });
     }
@@ -53,40 +72,63 @@ app.get('/api/films/:year', (req, res) => {
   }
 });
 
-// Save films for a specific year
+// Check a season as it is on disk, without saving anything
+app.get('/api/validate/:year', (req, res) => {
+  try {
+    if (!YEAR_PATTERN.test(req.params.year)) {
+      return res.status(400).json({ error: 'Year must be four digits' });
+    }
+    const yearEntry = readManifest().years.find(y => y.id === req.params.year);
+    const filepath = path.join(DATA_DIR, `oscars${req.params.year}.json`);
+    if (!yearEntry || !fs.existsSync(filepath)) {
+      return res.status(404).json({ error: 'Year not found' });
+    }
+    const films = JSON.parse(fs.readFileSync(filepath, 'utf8'));
+    res.json(validateFilms(films, { nominationsAnnounced: yearEntry.nominationsAnnounced === true }));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Save films for a specific year. Nothing is written if the films would not
+// load in the app.
 app.post('/api/films/:year', (req, res) => {
   try {
-    const filename = `oscars${req.params.year}.json`;
-    const filepath = path.join(DATA_DIR, filename);
+    if (!YEAR_PATTERN.test(req.params.year)) {
+      return res.status(400).json({ error: 'Year must be four digits' });
+    }
     const { films, changelog } = req.body;
-
-    // Write films with pretty formatting
-    fs.writeFileSync(filepath, JSON.stringify(films, null, 2));
-
-    // Update manifest
     const manifestPath = path.join(DATA_DIR, 'manifest.json');
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const manifest = readManifest();
+    const yearEntry = manifest.years.find(y => y.id === req.params.year);
+    if (!yearEntry) {
+      return res.status(404).json({ error: `Season ${req.params.year} is not in the manifest` });
+    }
+
+    const { errors, warnings } = validateFilms(films, { nominationsAnnounced: yearEntry.nominationsAnnounced === true });
+    if (errors.length > 0) {
+      return res.status(400).json({ error: 'Not saved: the data has errors', errors, warnings });
+    }
 
     // Bump patch version
     const versionParts = manifest.version.split('.');
     versionParts[2] = parseInt(versionParts[2]) + 1;
     manifest.version = versionParts.join('.');
     manifest.lastUpdated = new Date().toISOString();
+    if (typeof changelog === 'string' && changelog.trim()) {
+      manifest.changelog = changelog.trim();
+    }
+    yearEntry.filmCount = films.length;
 
-    // Update changelog if provided
-    if (changelog) {
-      manifest.changelog = changelog;
+    const manifestCheck = validateManifest(manifest);
+    if (manifestCheck.errors.length > 0) {
+      return res.status(400).json({ error: 'Not saved: the manifest has errors', errors: manifestCheck.errors, warnings });
     }
 
-    // Update film count for this year
-    const yearEntry = manifest.years.find(y => y.id === req.params.year);
-    if (yearEntry) {
-      yearEntry.filmCount = films.length;
-    }
+    writeJsonAtomic(path.join(DATA_DIR, `oscars${req.params.year}.json`), films);
+    writeJsonAtomic(manifestPath, manifest);
 
-    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-
-    res.json({ success: true, version: manifest.version });
+    res.json({ success: true, version: manifest.version, warnings });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -95,9 +137,12 @@ app.post('/api/films/:year', (req, res) => {
 // Update manifest (for changelog, nominationsAnnounced, etc.)
 app.post('/api/manifest', (req, res) => {
   try {
-    const manifestPath = path.join(DATA_DIR, 'manifest.json');
     const manifest = req.body;
-    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    const { errors } = validateManifest(manifest);
+    if (errors.length > 0) {
+      return res.status(400).json({ error: 'Not saved: the manifest has errors', errors });
+    }
+    writeJsonAtomic(path.join(DATA_DIR, 'manifest.json'), manifest);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -220,6 +265,8 @@ app.get('/api/tmdb/movie/:id', (req, res) => {
   tmdbReq.end();
 });
 
-app.listen(PORT, () => {
-  console.log(`\n  CineTrack Editor running at http://localhost:${PORT}\n`);
+// Listen on this Mac only. The editor can rewrite the data files, so it must
+// not be reachable from other devices on the network.
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`\n  CineTrack Editor running at http://localhost:${PORT}\n  Data: ${DATA_DIR}\n`);
 });

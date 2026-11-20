@@ -64,6 +64,7 @@
       display: grid;
       grid-template-columns: 350px 1fr;
       height: calc(100vh - 60px);
+      min-height: 0;
     }
     .container.nomination-mode {
       grid-template-columns: 1fr;
@@ -179,6 +180,20 @@
       margin: 1rem;
       width: calc(100% - 2rem);
     }
+    .issues {
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      padding: 0.75rem 2rem;
+      max-height: 30vh;
+      overflow-y: auto;
+      font-size: 0.9rem;
+    }
+    .issues h3 { font-size: 0.95rem; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 1rem; }
+    .issues h3 button { padding: 0.15rem 0.6rem; font-size: 0.8rem; margin-left: auto; }
+    .issues.has-errors h3 { color: #ff6b6b; }
+    .issues ul { list-style: none; }
+    .issues li { padding: 0.15rem 0; color: #ccc; }
+    .issues li.error { color: #ff8a8a; font-weight: 600; }
     .empty-state {
       display: flex;
       align-items: center;
@@ -519,6 +534,8 @@
     <span id="statusMsg" class="status" style="display: none;"></span>
   </header>
 
+  <div class="issues" id="issues" style="display: none;"></div>
+
   <div class="container" id="mainContainer">
     <aside class="sidebar" id="sidebar">
       <div class="search-box">
@@ -537,7 +554,7 @@
     let films = [];
     let manifest = null;
     let selectedFilmId = null;
-    let currentYear = '2026';
+    let currentYear = null; // set from the manifest: the newest season
     let currentMode = 'film';
     let currentCategory = 'bestsupportingactor'; // First category announced
 
@@ -592,8 +609,21 @@
       if (val.type === 'boolean') categoryLabels[key] = val.label;
     });
 
+    // Every title, name and TMDB string goes through this before it is put
+    // into the page, so quotes, apostrophes and ampersands display as typed
+    // instead of breaking the form.
+    function esc(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     async function init() {
       manifest = await fetch('/api/manifest').then(r => r.json());
+      currentYear = manifest.years[0].id;
       const yearSelect = document.getElementById('yearSelect');
       manifest.years.forEach(y => {
         const opt = document.createElement('option');
@@ -663,7 +693,7 @@
         if (hasShortlist) badges.push('<span class="badge shortlisted">SL</span>');
         return `
           <div class="film-item ${f.id === selectedFilmId ? 'selected' : ''}" onclick="selectFilm('${f.id}')">
-            <span class="title">${f.title}</span>
+            <span class="title">${esc(f.title)}</span>
             <span class="badges">${badges.join('')}</span>
           </div>
         `;
@@ -682,11 +712,11 @@
 
       const editor = document.getElementById('editor');
       editor.innerHTML = `
-        <h2>${film.title}</h2>
+        <h2>${esc(film.title)}</h2>
 
         <div class="form-group">
           <label>Title</label>
-          <input type="text" value="${film.title}" onchange="updateField('title', this.value)">
+          <input type="text" value="${esc(film.title)}" onchange="updateField('title', this.value.trim())">
         </div>
 
         <div class="form-group">
@@ -750,7 +780,7 @@
       return `
         ${items.map((item, i) => `
           <div class="array-item">
-            <input type="text" value="${item}" onchange="updateArrayItem('${field}', ${i}, this.value)">
+            <input type="text" value="${esc(item.actorName)}" placeholder="Name" onchange="updateArrayItem('${field}', ${i}, this.value)">
             <button class="secondary" onclick="removeArrayItem('${field}', ${i})">Remove</button>
           </div>
         `).join('')}
@@ -762,9 +792,9 @@
       return `
         ${songs.map((song, i) => `
           <div class="song-item">
-            <input type="text" value="${song.songTitle}" placeholder="Song title"
+            <input type="text" value="${esc(song.songTitle)}" placeholder="Song title"
                    onchange="updateSong(${i}, 'songTitle', this.value)" style="width: 100%;">
-            <input type="text" value="${(song.songwriters || []).join(', ')}" placeholder="Songwriters (comma-separated)"
+            <input type="text" value="${esc((song.songwriters || []).join(', '))}" placeholder="Songwriters (comma-separated)"
                    onchange="updateSongwriters(${i}, this.value)" style="width: 100%;">
             <button class="secondary" onclick="removeSong(${i})">Remove Song</button>
           </div>
@@ -784,7 +814,7 @@
     function updateArrayItem(field, index, value) {
       const film = films.find(f => f.id === selectedFilmId);
       if (film && film[field]) {
-        film[field][index] = value;
+        film[field][index] = { actorName: value.trim() };
       }
     }
 
@@ -792,7 +822,7 @@
       const film = films.find(f => f.id === selectedFilmId);
       if (film) {
         if (!film[field]) film[field] = [];
-        film[field].push('');
+        film[field].push({ actorName: '' });
         renderEditor();
       }
     }
@@ -808,7 +838,7 @@
     function updateSong(index, field, value) {
       const film = films.find(f => f.id === selectedFilmId);
       if (film && film.bestoriginalsong && film.bestoriginalsong[index]) {
-        film.bestoriginalsong[index][field] = value;
+        film.bestoriginalsong[index][field] = value.trim();
       }
     }
 
@@ -837,16 +867,13 @@
     }
 
     function addNewFilm(prefillTitle = null) {
-      const title = prefillTitle || prompt('Enter film title:');
+      const title = (prefillTitle || prompt('Enter film title:') || '').trim();
       if (!title) return null;
 
-      const maxId = Math.max(0, ...films.map(f => {
-        const match = f.id.match(/(\d+)$/);
-        return match ? parseInt(match[1]) : 0;
-      }));
-
       const newFilm = {
-        id: `00000001-0000-0000-0000-${String(maxId + 1).padStart(12, '0')}`,
+        // Random, so deleting one film and adding another can never reuse an
+        // id and hand someone's watched state to the wrong film.
+        id: crypto.randomUUID(),
         title: title,
         runtime: 0,
         watched: false,
@@ -1009,7 +1036,7 @@
             <div class="film-chips">
               ${shortlistedFilms.map(f => `
                 <div class="film-chip ${f[cat] ? 'nominated' : ''}" onclick="toggleBooleanNomination('${f.id}', '${cat}')">
-                  ${f.title}
+                  ${esc(f.title)}
                 </div>
               `).join('')}
             </div>
@@ -1022,7 +1049,7 @@
             <div class="nominated-list">
               ${nominatedFilms.map(f => `
                 <div class="nominated-item">
-                  <span class="film-title">${f.title}</span>
+                  <span class="film-title">${esc(f.title)}</span>
                   <button class="secondary" onclick="toggleBooleanNomination('${f.id}', '${cat}')">Remove</button>
                 </div>
               `).join('')}
@@ -1041,7 +1068,7 @@
               <div class="dropdown-list" id="filmDropdown-${cat}">
                 ${allFilmsSorted.filter(f => !f[cat]).map(f => `
                   <div class="dropdown-item" onclick="toggleBooleanNomination('${f.id}', '${cat}'); closeFilmDropdown('${cat}');">
-                    ${f.title}
+                    ${esc(f.title)}
                   </div>
                 `).join('')}
               </div>
@@ -1056,8 +1083,8 @@
       const nominations = [];
       films.forEach(f => {
         if (f[cat] && f[cat].length > 0) {
-          f[cat].forEach(name => {
-            nominations.push({ film: f, name: name });
+          f[cat].forEach((entry, index) => {
+            nominations.push({ film: f, name: entry.actorName, index });
           });
         }
       });
@@ -1072,9 +1099,9 @@
             <div class="nominated-list">
               ${nominations.map(n => `
                 <div class="nominated-item">
-                  <span class="person-name">${n.name}</span>
-                  <span class="film-title">- ${n.film.title}</span>
-                  <button class="secondary" onclick="removeActingNomination('${n.film.id}', '${cat}', '${n.name.replace(/'/g, "\\'")}')">Remove</button>
+                  <span class="person-name">${esc(n.name)}</span>
+                  <span class="film-title">- ${esc(n.film.title)}</span>
+                  <button class="secondary" onclick="removeActingNomination('${n.film.id}', '${cat}', ${n.index})">Remove</button>
                 </div>
               `).join('')}
             </div>
@@ -1087,7 +1114,7 @@
             <input type="text" id="actorName-${cat}" placeholder="Actor/Actress name">
             <select id="actorFilm-${cat}">
               <option value="">Select film...</option>
-              ${allFilmsSorted.map(f => `<option value="${f.id}">${f.title}</option>`).join('')}
+              ${allFilmsSorted.map(f => `<option value="${f.id}">${esc(f.title)}</option>`).join('')}
             </select>
             <button onclick="addActingNomination('${cat}')">+ Add</button>
           </div>
@@ -1132,8 +1159,8 @@
             <div class="song-chips">
               ${shortlistedSongs.map(s => `
                 <div class="song-chip" onclick="toggleSongNomination('${s.film.id}', ${s.index})">
-                  <span class="song-title">"${s.song.songTitle}"</span>
-                  <span class="song-film">from ${s.film.title}</span>
+                  <span class="song-title">"${esc(s.song.songTitle)}"</span>
+                  <span class="song-film">from ${esc(s.film.title)}</span>
                 </div>
               `).join('')}
             </div>
@@ -1146,8 +1173,8 @@
             <div class="song-chips">
               ${nominatedSongs.map(s => `
                 <div class="song-chip nominated" onclick="toggleSongNomination('${s.film.id}', ${s.index})">
-                  <span class="song-title">"${s.song.songTitle}"</span>
-                  <span class="song-film">from ${s.film.title}</span>
+                  <span class="song-title">"${esc(s.song.songTitle)}"</span>
+                  <span class="song-film">from ${esc(s.film.title)}</span>
                 </div>
               `).join('')}
             </div>
@@ -1160,7 +1187,7 @@
             <input type="text" id="newSongTitle" placeholder="Song title">
             <select id="newSongFilm">
               <option value="">Select film...</option>
-              ${allFilmsSorted.map(f => `<option value="${f.id}">${f.title}</option>`).join('')}
+              ${allFilmsSorted.map(f => `<option value="${f.id}">${esc(f.title)}</option>`).join('')}
             </select>
             <button onclick="addSongNomination()">+ Add Song</button>
           </div>
@@ -1205,8 +1232,8 @@
       const film = films.find(f => f.id === filmId);
       if (film) {
         if (!film[cat]) film[cat] = [];
-        if (!film[cat].includes(name)) {
-          film[cat].push(name);
+        if (!film[cat].some(entry => entry.actorName === name)) {
+          film[cat].push({ actorName: name });
         }
         renderNominationMode();
       }
@@ -1223,15 +1250,15 @@
 
       const newFilm = addNewFilm(filmTitle);
       if (newFilm) {
-        newFilm[cat] = [name];
+        newFilm[cat] = [{ actorName: name }];
         renderNominationMode();
       }
     }
 
-    function removeActingNomination(filmId, cat, name) {
+    function removeActingNomination(filmId, cat, index) {
       const film = films.find(f => f.id === filmId);
       if (film && film[cat]) {
-        film[cat] = film[cat].filter(n => n !== name);
+        film[cat].splice(index, 1);
         renderNominationMode();
       }
     }
@@ -1295,7 +1322,7 @@
         .filter(f => !f[cat] && f.title.toLowerCase().includes(search))
         .map(f => `
           <div class="dropdown-item" onclick="toggleBooleanNomination('${f.id}', '${cat}'); closeFilmDropdown('${cat}');">
-            ${f.title}
+            ${esc(f.title)}
           </div>
         `).join('');
 
@@ -1363,9 +1390,9 @@
           </div>
 
           <div class="tmdb-current-film">
-            <h3>${currentFilm.title}</h3>
+            <h3>${esc(currentFilm.title)}</h3>
             <div class="tmdb-search-box">
-              <input type="text" id="tmdbSearchInput" value="${currentFilm.title}"
+              <input type="text" id="tmdbSearchInput" value="${esc(currentFilm.title)}"
                      onkeypress="if(event.key==='Enter') searchTmdb()">
               <button onclick="searchTmdb()">Search TMDB</button>
             </div>
@@ -1385,7 +1412,7 @@
               ${missingFilms.map((f, i) => `
                 <div class="tmdb-missing-item ${i === tmdbCurrentIndex ? 'current' : ''} ${tmdbFixedIds.has(f.id) ? 'done' : ''}"
                      onclick="jumpToTmdbFilm(${i})">
-                  <span>${f.title}</span>
+                  <span>${esc(f.title)}</span>
                   ${tmdbFixedIds.has(f.id) ? '<span style="color: #8f8;">Fixed (unsaved)</span>' : ''}
                 </div>
               `).join('')}
@@ -1417,20 +1444,20 @@
         }
 
         resultsDiv.innerHTML = tmdbSearchResults.map((movie, i) => `
-          <div class="tmdb-result" onclick="applyTmdbId(${movie.id})">
+          <div class="tmdb-result" onclick="applyTmdbId(${Number(movie.id)})">
             ${movie.poster
-              ? `<img src="${movie.poster}" alt="${movie.title}">`
+              ? `<img src="${esc(movie.poster)}" alt="${esc(movie.title)}">`
               : `<div class="tmdb-no-poster">No Poster</div>`}
             <div class="tmdb-result-info">
-              <div class="tmdb-result-title">${movie.title}</div>
-              <div class="tmdb-result-year">${movie.year} &middot; ${movie.director}</div>
-              <div class="tmdb-result-overview">${movie.overview}</div>
+              <div class="tmdb-result-title">${esc(movie.title)}</div>
+              <div class="tmdb-result-year">${esc(movie.year)} &middot; ${esc(movie.director)}</div>
+              <div class="tmdb-result-overview">${esc(movie.overview)}</div>
               <div class="tmdb-result-id">TMDB ID: ${movie.id}</div>
             </div>
           </div>
         `).join('');
       } catch (e) {
-        resultsDiv.innerHTML = `<p style="color: #e94560;">Error: ${e.message}</p>`;
+        resultsDiv.innerHTML = `<p style="color: #e94560;">Error: ${esc(e.message)}</p>`;
       }
     }
 
@@ -1505,17 +1532,40 @@
           body: JSON.stringify({ films, changelog: changelog || null })
         });
         const data = await res.json();
+        showIssues(data.errors || [], data.warnings || []);
         if (data.success) {
-          showStatus(`Saved! Version: ${data.version}`, 'success');
+          const count = (data.warnings || []).length;
+          showStatus(`Saved! Version: ${data.version}${count ? ` (${count} warning${count === 1 ? '' : 's'})` : ''}`, 'success');
           if (currentMode === 'film') {
             renderFilmList();
           }
         } else {
-          showStatus('Error saving: ' + data.error, 'error');
+          showStatus(data.error || 'Not saved', 'error');
         }
       } catch (e) {
         showStatus('Error: ' + e.message, 'error');
       }
+    }
+
+    // Lists what the server's checks found. Errors mean nothing was saved.
+    function showIssues(errors, warnings) {
+      const panel = document.getElementById('issues');
+      if (errors.length === 0 && warnings.length === 0) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.classList.toggle('has-errors', errors.length > 0);
+      const heading = errors.length > 0
+        ? `Not saved. Fix ${errors.length} error${errors.length === 1 ? '' : 's'} first`
+        : `Saved, with ${warnings.length} thing${warnings.length === 1 ? '' : 's'} to check`;
+      panel.innerHTML = `
+        <h3>${heading} <button class="secondary" onclick="showIssues([], [])">Hide</button></h3>
+        <ul>
+          ${errors.map(message => `<li class="error">${esc(message)}</li>`).join('')}
+          ${warnings.map(message => `<li>${esc(message)}</li>`).join('')}
+        </ul>
+      `;
+      panel.style.display = 'block';
     }
 
     function showStatus(msg, type) {
@@ -1523,7 +1573,7 @@
       el.textContent = msg;
       el.className = 'status ' + type;
       el.style.display = 'block';
-      setTimeout(() => { el.style.display = 'none'; }, 3000);
+      setTimeout(() => { el.style.display = 'none'; }, type === 'error' ? 8000 : 3000);
     }
 
     document.getElementById('searchInput').oninput = renderFilmList;
