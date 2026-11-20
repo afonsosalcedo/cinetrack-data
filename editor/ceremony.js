@@ -31,8 +31,26 @@ const ceremony = {
   data: null,          // what the server last reported
   chosen: null,        // index of the nominee picked but not yet announced
   busy: false,
-  timer: null
+  timer: null,
+  testFilms: null      // the films the app shows in its test season
 };
+
+// Rehearsal always uses the test season's own films, whatever season is
+// selected at the top, so the winners sent match what the app is showing.
+function ceremonyFilms() {
+  return ceremony.target === 'rehearsal' && ceremony.testFilms ? ceremony.testFilms : films;
+}
+
+async function loadTestFilms() {
+  const list = await fetch(`/api/films/${TEST_SEASON_FILMS}`).then(r => r.json());
+  if (!Array.isArray(list)) throw new Error(`Season ${TEST_SEASON_FILMS} could not be loaded`);
+  const ids = list.map(film => film.tmdbId).filter(id => id && !(id in tmdbInfo));
+  if (ids.length) {
+    const data = await fetch(`/api/tmdb/films?ids=${ids.join(',')}`).then(r => r.json());
+    if (data.films) Object.assign(tmdbInfo, data.films);
+  }
+  ceremony.testFilms = list;
+}
 
 function ceremonyTargetYear() {
   return ceremony.target === 'live' ? currentYear : TEST_YEAR;
@@ -48,19 +66,19 @@ function ceremonyNominees(key) {
   const config = categories[key];
   const list = [];
   if (config.type === 'acting') {
-    films.forEach(film => (film[key] || []).forEach(entry =>
+    ceremonyFilms().forEach(film => (film[key] || []).forEach(entry =>
       list.push({ value: entry.actorName, primary: entry.actorName, secondary: film.title, film })));
   } else if (config.type === 'song') {
-    films.forEach(film => (film.bestoriginalsong || []).filter(isNominated).forEach(song =>
+    ceremonyFilms().forEach(film => (film.bestoriginalsong || []).filter(isNominated).forEach(song =>
       list.push({ value: song.songTitle, primary: `"${song.songTitle}"`, secondary: film.title, film })));
   } else if (key === 'bestdirector') {
     // The app shows and compares the director's name, which it gets from TMDB.
-    films.filter(film => film[key]).forEach(film => {
+    ceremonyFilms().filter(film => film[key]).forEach(film => {
       const director = film.tmdbId && tmdbInfo[film.tmdbId] ? tmdbInfo[film.tmdbId].director : null;
       list.push({ value: director || film.title, primary: director || 'Director not known yet', secondary: film.title, film });
     });
   } else {
-    films.filter(film => film[key]).forEach(film =>
+    ceremonyFilms().filter(film => film[key]).forEach(film =>
       list.push({ value: film.title, primary: film.title, secondary: filmFacts(film), film }));
   }
   return list.sort((a, b) => a.primary.localeCompare(b.primary));
@@ -105,6 +123,13 @@ function setCeremonyCategory(key) {
 function renderCeremonyMode() {
   const editor = document.getElementById('editor');
   if (!ceremony.timer) startCeremonyPolling();
+  if (ceremony.target === 'rehearsal' && !ceremony.testFilms) {
+    editor.innerHTML = '<div class="empty-state">Loading the test season...</div>';
+    loadTestFilms()
+      .catch(e => { ceremony.testFilms = []; showStatus(e.message, 'error'); })
+      .then(() => { if (currentMode === 'ceremony') renderCeremonyMode(); });
+    return;
+  }
   if (!ceremony.data) {
     editor.innerHTML = '<div class="empty-state">Checking the database...</div>';
     refreshCeremony().then(() => { if (currentMode === 'ceremony') renderCeremonyMode(); });
@@ -170,7 +195,7 @@ function renderCeremonyMode() {
             : live
             ? `<strong>LIVE.</strong> Winners go to everyone using the ${esc(currentYear)} season, immediately.`
             : `<strong>Rehearsal.</strong> Winners go to the test season (${TEST_YEAR}) only. Nobody's real ballot is affected.
-               ${currentYear === TEST_SEASON_FILMS ? '' : `<br><span class="entry-secondary">The app's test season uses the ${TEST_SEASON_FILMS} films. To see ballots score in the app, choose the ${TEST_SEASON_FILMS} season in the menu above.</span>`}`}
+               <br><span class="entry-secondary">Showing the ${TEST_SEASON_FILMS} nominees, which is what the app's Test season uses.</span>`}
         </div>
         ${notice}
         ${locked ? '' : renderCeremonyStart()}
