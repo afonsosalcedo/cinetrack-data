@@ -431,6 +431,9 @@
     }
 
     /* Category entry: quick add, entries, paste */
+    /* The sidebar scrolls when it is taller than the window; its items must
+       keep their height rather than being squashed to fit. */
+    .cat-sidebar > * { flex-shrink: 0; }
     .stage-toggle { margin-bottom: 0.75rem; }
     .stage-toggle button { flex: 1; font-size: 0.85rem; padding: 0.45rem 0.5rem; }
     .quick-add { display: flex; gap: 0.5rem; }
