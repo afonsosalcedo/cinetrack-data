@@ -425,6 +425,27 @@
       color: rgba(255,255,255,0.8);
     }
 
+    /* TMDB Check grid */
+    .check-bar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+    .check-bar h2 { color: #e94560; margin: 0; }
+    .check-bar .summary { color: #aaa; }
+    .check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; padding-bottom: 5rem; }
+    .check-card { background: #16213e; border: 2px solid transparent; border-radius: 8px; padding: 0.5rem; cursor: pointer; }
+    .check-card:hover { border-color: #e94560; }
+    .check-card.flagged { border-color: #ffb347; }
+    .check-card.missing { border-color: #ff6b6b; }
+    .check-card img, .check-card .no-poster { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; background: #0f3460; display: flex; align-items: center; justify-content: center; color: #666; font-size: 0.8rem; text-align: center; }
+    .check-card .ours { font-weight: 600; font-size: 0.9rem; margin-top: 0.4rem; line-height: 1.25; }
+    .check-card .theirs { font-size: 0.8rem; color: #ffb347; margin-top: 0.15rem; }
+    .check-card .facts { font-size: 0.8rem; color: #aaa; margin-top: 0.15rem; }
+    .check-card .flag { display: inline-block; font-size: 0.7rem; font-weight: 600; background: #ffb347; color: #1a1a2e; border-radius: 3px; padding: 0.05rem 0.35rem; margin: 0.25rem 0.25rem 0 0; }
+    .check-card.missing .flag { background: #ff6b6b; }
+    .picker { background: #16213e; border: 2px solid #e94560; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; }
+    .picker h3 { margin-bottom: 0.25rem; }
+    .picker .current { color: #aaa; font-size: 0.9rem; margin-bottom: 1rem; }
+    .picker .row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+    .picker .row input { flex: 1; min-width: 220px; }
+
     /* TMDB Lookup Mode Styles */
     .tmdb-container {
       max-width: 900px;
@@ -571,7 +592,7 @@
     <div class="mode-toggle">
       <button id="filmModeBtn" class="active" onclick="setMode('film')">Film Mode</button>
       <button id="nomModeBtn" onclick="setMode('nomination')">Nomination Mode</button>
-      <button id="tmdbModeBtn" onclick="setMode('tmdb')">Fix IDs</button>
+      <button id="tmdbModeBtn" onclick="setMode('tmdb')">TMDB Check</button>
     </div>
     <span id="statusMsg" class="status" style="display: none;"></span>
   </header>
@@ -683,9 +704,12 @@
       currentYear = year;
       films = await fetch(`/api/films/${year}`).then(r => r.json());
       selectedFilmId = null;
+      tmdbPickingFilmId = null;
       if (currentMode === 'film') {
         renderFilmList();
         document.getElementById('editor').innerHTML = '<div class="empty-state">Select a film to edit</div>';
+      } else if (currentMode === 'tmdb') {
+        renderTmdbMode();
       } else {
         renderNominationMode();
       }
@@ -1412,179 +1436,200 @@
       }
     });
 
-    // ============ TMDB LOOKUP MODE FUNCTIONS ============
+    // ============ TMDB CHECK MODE ============
+    // Shows what every film's TMDB ID actually points to (poster, title,
+    // year, director), so a wrong match is obvious at a glance. Nothing shown
+    // here is saved except the ID itself.
 
-    let tmdbCurrentIndex = 0;
-    let tmdbSearchResults = [];
-    let tmdbFixedIds = new Set(); // Track which films we've fixed in this session
+    let tmdbInfo = {};            // TMDB ID -> what TMDB says about it (null if it does not exist)
+    let tmdbFilter = 'attention'; // 'attention' or 'all'
+    let tmdbPickingFilmId = null; // the film whose match is being chosen
+    let tmdbLoading = false;
 
-    function getFilmsMissingTmdbId() {
-      return films.filter(f => !f.tmdbId).sort((a, b) => a.title.localeCompare(b.title));
+    function plainTitle(text) {
+      return String(text || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase()
+        .replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
     }
 
-    function renderTmdbMode() {
-      const editor = document.getElementById('editor');
-      const missingFilms = getFilmsMissingTmdbId();
-      const totalFilms = films.length;
-      const fixedCount = totalFilms - missingFilms.length;
+    // Reasons a film deserves a second look. Empty means it looks right.
+    function tmdbFlags(film) {
+      if (!film.tmdbId) return ['No TMDB ID'];
+      if (!(film.tmdbId in tmdbInfo)) return [];
+      const info = tmdbInfo[film.tmdbId];
+      if (!info || info.error) return ['ID not found on TMDB'];
+      const flags = [];
+      const ours = plainTitle(film.title);
+      if (ours !== plainTitle(info.title) && ours !== plainTitle(info.originalTitle)) flags.push('Different title');
+      const ceremony = parseInt(currentYear);
+      const year = parseInt(info.year);
+      if (!year) flags.push('No release date');
+      else if (year < ceremony - 2 || year > ceremony) flags.push(`Released ${year}`);
+      if (films.some(other => other !== film && other.tmdbId === film.tmdbId)) flags.push('Same ID as another film');
+      return flags;
+    }
 
-      if (missingFilms.length === 0) {
-        editor.innerHTML = `
-          <div class="tmdb-container">
-            <div class="tmdb-header">
-              <h2>All Films Have TMDB IDs!</h2>
-              <p>Every film in the database has a valid TMDB ID. No action needed.</p>
-            </div>
-            <div class="tmdb-progress">
-              <div><strong>${fixedCount}</strong> of ${totalFilms} films have TMDB IDs (100%)</div>
-              <div class="tmdb-progress-bar">
-                <div class="tmdb-progress-fill" style="width: 100%"></div>
-              </div>
-            </div>
-          </div>
-        `;
-        return;
+    async function loadTmdbInfo() {
+      const ids = [...new Set(films.map(f => f.tmdbId).filter(id => id && !(id in tmdbInfo)))];
+      if (ids.length === 0) return;
+      tmdbLoading = true;
+      try {
+        for (let i = 0; i < ids.length; i += 100) {
+          const data = await fetch(`/api/tmdb/films?ids=${ids.slice(i, i + 100).join(',')}`).then(r => r.json());
+          if (data.error) throw new Error(data.error);
+          Object.assign(tmdbInfo, data.films);
+        }
+      } catch (e) {
+        showStatus('TMDB: ' + e.message, 'error');
+      }
+      tmdbLoading = false;
+    }
+
+    async function renderTmdbMode() {
+      const editor = document.getElementById('editor');
+      if (films.some(f => f.tmdbId && !(f.tmdbId in tmdbInfo)) && !tmdbLoading) {
+        editor.innerHTML = '<div class="empty-state">Asking TMDB about each film...</div>';
+        await loadTmdbInfo();
+        if (currentMode !== 'tmdb') return;
       }
 
-      const currentFilm = missingFilms[tmdbCurrentIndex] || missingFilms[0];
-      tmdbCurrentIndex = Math.min(tmdbCurrentIndex, missingFilms.length - 1);
-
-      const progressPercent = (fixedCount / totalFilms * 100).toFixed(1);
+      const sorted = films.slice().sort((a, b) => a.title.localeCompare(b.title));
+      const flagged = sorted.filter(f => tmdbFlags(f).length > 0);
+      const shown = tmdbFilter === 'all' ? sorted : flagged;
+      const picking = films.find(f => f.id === tmdbPickingFilmId);
 
       editor.innerHTML = `
-        <div class="tmdb-container">
-          <div class="tmdb-header">
-            <h2>Fix Missing TMDB IDs</h2>
-            <p>Search TMDB and assign the correct movie ID to each film.</p>
-          </div>
-
-          <div class="tmdb-progress">
-            <div><strong>${fixedCount}</strong> of ${totalFilms} films have TMDB IDs (${progressPercent}%) &mdash; <strong>${missingFilms.length}</strong> remaining</div>
-            <div class="tmdb-progress-bar">
-              <div class="tmdb-progress-fill" style="width: ${progressPercent}%"></div>
-            </div>
-          </div>
-
-          <div class="tmdb-current-film">
-            <h3>${esc(currentFilm.title)}</h3>
-            <div class="tmdb-search-box">
-              <input type="text" id="tmdbSearchInput" value="${esc(currentFilm.title)}"
-                     onkeypress="if(event.key==='Enter') searchTmdb()">
-              <button onclick="searchTmdb()">Search TMDB</button>
-            </div>
-            <div id="tmdbResults" class="tmdb-results">
-              <p style="color: #666;">Click "Search TMDB" to find matching movies</p>
-            </div>
-            <div class="tmdb-actions">
-              <button class="secondary" onclick="skipTmdbFilm()">Skip This Film</button>
-              <button class="secondary" onclick="prevTmdbFilm()">Previous</button>
-              <button class="secondary" onclick="nextTmdbFilm()">Next</button>
-            </div>
-          </div>
-
-          <div class="tmdb-film-list">
-            <h4>Films Missing TMDB ID (${missingFilms.length})</h4>
-            <div style="max-height: 300px; overflow-y: auto;">
-              ${missingFilms.map((f, i) => `
-                <div class="tmdb-missing-item ${i === tmdbCurrentIndex ? 'current' : ''} ${tmdbFixedIds.has(f.id) ? 'done' : ''}"
-                     onclick="jumpToTmdbFilm(${i})">
-                  <span>${esc(f.title)}</span>
-                  ${tmdbFixedIds.has(f.id) ? '<span style="color: #8f8;">Fixed (unsaved)</span>' : ''}
-                </div>
-              `).join('')}
-            </div>
+        <div class="check-bar">
+          <h2>TMDB Check</h2>
+          <span class="summary">${films.length} films, ${flagged.length} to look at</span>
+          <div class="mode-toggle">
+            <button class="${tmdbFilter === 'attention' ? 'active' : ''}" onclick="setTmdbFilter('attention')">To look at (${flagged.length})</button>
+            <button class="${tmdbFilter === 'all' ? 'active' : ''}" onclick="setTmdbFilter('all')">All films</button>
           </div>
         </div>
+        ${picking ? renderTmdbPicker(picking) : ''}
+        ${shown.length === 0
+          ? '<div class="empty-state" style="height: 40vh;">Every film has a TMDB ID that matches its title and year.</div>'
+          : `<div class="check-grid">${shown.map(renderTmdbCard).join('')}</div>`}
         <button class="save-float" onclick="saveFilms()">Save All Changes</button>
       `;
+      if (picking) {
+        document.querySelector('.picker').scrollIntoView({ block: 'start' });
+        searchTmdb();
+      }
+    }
 
-      // Auto-search when rendering
-      searchTmdb();
+    function renderTmdbCard(film) {
+      const info = film.tmdbId ? tmdbInfo[film.tmdbId] : null;
+      const flags = tmdbFlags(film);
+      const state = !film.tmdbId || (film.tmdbId in tmdbInfo && !info) ? 'missing' : flags.length ? 'flagged' : '';
+      const differs = info && plainTitle(info.title) !== plainTitle(film.title);
+      return `
+        <div class="check-card ${state}" onclick="pickTmdbFor('${film.id}')">
+          ${info && info.poster ? `<img src="${esc(info.poster)}" alt="" loading="lazy">` : '<div class="no-poster">No poster</div>'}
+          <div class="ours">${esc(film.title)}</div>
+          ${differs ? `<div class="theirs">TMDB: ${esc(info.title)}</div>` : ''}
+          ${info && info.originalTitle ? `<div class="facts">Original: ${esc(info.originalTitle)}</div>` : ''}
+          ${info ? `<div class="facts">${esc(info.year || 'No date')} &middot; ${esc(info.director || 'No director')}</div>` : ''}
+          ${flags.map(flag => `<span class="flag">${esc(flag)}</span>`).join('')}
+        </div>
+      `;
+    }
+
+    function renderTmdbPicker(film) {
+      const info = film.tmdbId ? tmdbInfo[film.tmdbId] : null;
+      return `
+        <div class="picker">
+          <h3>${esc(film.title)}</h3>
+          <div class="current">${info
+            ? `Now set to: ${esc(info.title)} (${esc(info.year || 'no date')}, ${esc(info.director || 'no director')}), TMDB ID ${film.tmdbId}`
+            : film.tmdbId ? `TMDB ID ${film.tmdbId} was not found` : 'No TMDB ID yet'}</div>
+          <div class="row">
+            <input type="text" id="tmdbSearchInput" value="${esc(film.title)}" placeholder="Search by title (English or original)"
+                   onkeydown="if(event.key==='Enter') searchTmdb()">
+            <button onclick="searchTmdb()">Search</button>
+          </div>
+          <div class="row">
+            <input type="text" id="tmdbPasteInput" placeholder="Or paste a TMDB or IMDb link, or a TMDB ID"
+                   onkeydown="if(event.key==='Enter') resolveTmdbPaste()">
+            <button class="secondary" onclick="resolveTmdbPaste()">Use link</button>
+          </div>
+          <div id="tmdbResults" class="tmdb-results"></div>
+          <div class="tmdb-actions">
+            <button class="secondary" onclick="pickTmdbFor(null)">Close</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function setTmdbFilter(filter) {
+      tmdbFilter = filter;
+      renderTmdbMode();
+    }
+
+    function pickTmdbFor(filmId) {
+      tmdbPickingFilmId = filmId;
+      renderTmdbMode();
+    }
+
+    function renderTmdbResults(results) {
+      const taken = new Map(films.filter(f => f.tmdbId && f.id !== tmdbPickingFilmId).map(f => [f.tmdbId, f.title]));
+      return results.map(movie => `
+        <div class="tmdb-result" onclick="applyTmdbId(${Number(movie.id)})">
+          ${movie.poster
+            ? `<img src="${esc(movie.poster)}" alt="">`
+            : `<div class="tmdb-no-poster">No Poster</div>`}
+          <div class="tmdb-result-info">
+            <div class="tmdb-result-title">${esc(movie.title)}${movie.originalTitle ? ` <span style="color:#aaa; font-weight:400;">(${esc(movie.originalTitle)})</span>` : ''}</div>
+            <div class="tmdb-result-year">${esc(movie.year || 'No date')} &middot; ${esc(movie.director || 'No director')}${movie.runtime ? ` &middot; ${Number(movie.runtime)} min` : ''}</div>
+            <div class="tmdb-result-overview">${esc(movie.overview)}</div>
+            <div class="tmdb-result-id">TMDB ID: ${Number(movie.id)}${taken.has(movie.id) ? ` &mdash; already used by ${esc(taken.get(movie.id))}` : ''}</div>
+          </div>
+        </div>
+      `).join('');
     }
 
     async function searchTmdb() {
-      const query = document.getElementById('tmdbSearchInput').value.trim();
-      if (!query) return;
-
+      const input = document.getElementById('tmdbSearchInput');
       const resultsDiv = document.getElementById('tmdbResults');
+      if (!input || !resultsDiv || !input.value.trim()) return;
       resultsDiv.innerHTML = '<p style="color: #aaa;">Searching...</p>';
-
       try {
-        const res = await fetch(`/api/tmdb/search?q=${encodeURIComponent(query)}`);
-        const data = await res.json();
-        tmdbSearchResults = data.results || [];
-
-        if (tmdbSearchResults.length === 0) {
-          resultsDiv.innerHTML = '<p style="color: #e94560;">No results found. Try a different search term.</p>';
-          return;
-        }
-
-        resultsDiv.innerHTML = tmdbSearchResults.map((movie, i) => `
-          <div class="tmdb-result" onclick="applyTmdbId(${Number(movie.id)})">
-            ${movie.poster
-              ? `<img src="${esc(movie.poster)}" alt="${esc(movie.title)}">`
-              : `<div class="tmdb-no-poster">No Poster</div>`}
-            <div class="tmdb-result-info">
-              <div class="tmdb-result-title">${esc(movie.title)}</div>
-              <div class="tmdb-result-year">${esc(movie.year)} &middot; ${esc(movie.director)}</div>
-              <div class="tmdb-result-overview">${esc(movie.overview)}</div>
-              <div class="tmdb-result-id">TMDB ID: ${movie.id}</div>
-            </div>
-          </div>
-        `).join('');
+        const data = await fetch(`/api/tmdb/search?q=${encodeURIComponent(input.value.trim())}`).then(r => r.json());
+        if (data.error) throw new Error(data.error);
+        resultsDiv.innerHTML = data.results.length
+          ? renderTmdbResults(data.results)
+          : '<p style="color: #e94560;">Nothing found. Try the original-language title, or paste a link below.</p>';
+        data.results.forEach(movie => { tmdbInfo[movie.id] = movie; });
       } catch (e) {
         resultsDiv.innerHTML = `<p style="color: #e94560;">Error: ${esc(e.message)}</p>`;
       }
     }
 
+    async function resolveTmdbPaste() {
+      const pasted = document.getElementById('tmdbPasteInput').value.trim();
+      const resultsDiv = document.getElementById('tmdbResults');
+      if (!pasted) return;
+      try {
+        const data = await fetch(`/api/tmdb/resolve?q=${encodeURIComponent(pasted)}`).then(r => r.json());
+        if (data.error) throw new Error(data.error);
+        tmdbInfo[data.film.id] = data.film;
+        resultsDiv.innerHTML = renderTmdbResults([data.film]);
+      } catch (e) {
+        resultsDiv.innerHTML = `<p style="color: #e94560;">${esc(e.message)}</p>`;
+      }
+    }
+
     function applyTmdbId(tmdbId) {
-      const missingFilms = getFilmsMissingTmdbId();
-      const currentFilm = missingFilms[tmdbCurrentIndex];
-
-      if (currentFilm) {
-        // Find and update the film in the main films array
-        const filmIndex = films.findIndex(f => f.id === currentFilm.id);
-        if (filmIndex >= 0) {
-          films[filmIndex].tmdbId = tmdbId;
-          tmdbFixedIds.add(currentFilm.id);
-          showStatus(`Set TMDB ID ${tmdbId} for "${currentFilm.title}"`, 'success');
-
-          // Move to next film
-          nextTmdbFilm();
-        }
-      }
-    }
-
-    function skipTmdbFilm() {
-      nextTmdbFilm();
-    }
-
-    function prevTmdbFilm() {
-      const missingFilms = getFilmsMissingTmdbId();
-      if (tmdbCurrentIndex > 0) {
-        tmdbCurrentIndex--;
-      } else {
-        tmdbCurrentIndex = missingFilms.length - 1;
-      }
-      renderTmdbMode();
-    }
-
-    function nextTmdbFilm() {
-      const missingFilms = getFilmsMissingTmdbId();
-      if (missingFilms.length === 0) {
-        renderTmdbMode();
+      const film = films.find(f => f.id === tmdbPickingFilmId);
+      if (!film) return;
+      const other = films.find(f => f !== film && f.tmdbId === tmdbId);
+      if (other) {
+        showStatus(`That TMDB film is already used by "${other.title}"`, 'error');
         return;
       }
-      if (tmdbCurrentIndex < missingFilms.length - 1) {
-        tmdbCurrentIndex++;
-      } else {
-        tmdbCurrentIndex = 0;
-      }
-      renderTmdbMode();
-    }
-
-    function jumpToTmdbFilm(index) {
-      tmdbCurrentIndex = index;
+      film.tmdbId = tmdbId;
+      tmdbPickingFilmId = null;
+      showStatus(`"${film.title}" set to TMDB ID ${tmdbId} (not saved yet)`, 'success');
       renderTmdbMode();
     }
 

@@ -102,13 +102,15 @@ function validateFilms(films, { nominationsAnnounced = false } = {}) {
       error('title is empty.');
     } else {
       if (film.title !== film.title.trim()) error('title has spaces at the start or end.');
+      // Non-breaking spaces and tabs look fine but break searching and matching.
+      if (/[\u00a0\t\n\r]| {2,}/.test(film.title)) error('title has an unusual or doubled space in it. Retype the spaces.');
       const key = film.title.trim().toLowerCase();
       if (seenTitles.has(key)) warn('another film has the same title.');
       else seenTitles.set(key, name);
     }
 
     if (film.tmdbId === undefined || film.tmdbId === null) {
-      warn('has no TMDB ID, so the app will guess the film from its title.');
+      warn('has no TMDB ID, so the app will guess the film from its title and may show the wrong one.');
     } else if (!Number.isInteger(film.tmdbId) || film.tmdbId <= 0) {
       error('tmdbId must be a positive whole number.');
     } else if (seenTmdbIds.has(film.tmdbId)) {
@@ -117,15 +119,18 @@ function validateFilms(films, { nominationsAnnounced = false } = {}) {
       seenTmdbIds.set(film.tmdbId, name);
     }
 
-    // Details the app requires to be present, even if empty
+    // Film details are not stored here. The app fetches them from TMDB by ID,
+    // which keeps this public repository free of TMDB's content (their terms
+    // limit how long it may be kept and do not allow passing it on). The
+    // fields still have to exist, empty, because the app requires them.
+    const mustBeEmpty = (field, isEmpty) => {
+      if (!isEmpty) error(`${field} must be left empty. The app gets it from TMDB using the film's TMDB ID.`);
+    };
     for (const field of ['releaseDate', 'director', 'description', 'imageURL']) {
-      if (!isString(film[field])) error(`${field} must be text (it can be empty).`);
+      mustBeEmpty(field, film[field] === '');
     }
-    if (!Number.isInteger(film.runtime) || film.runtime < 0) error('runtime must be a whole number of minutes.');
-    if (!isStringArray(film.cast)) error('cast must be a list of names.');
-    if (isString(film.imageURL) && film.imageURL && !/^https:\/\//.test(film.imageURL)) {
-      error('imageURL must start with https://.');
-    }
+    mustBeEmpty('runtime', film.runtime === 0);
+    mustBeEmpty('cast', Array.isArray(film.cast) && film.cast.length === 0);
 
     // Personal state must never ship in the shared data
     if (film.watched !== false) error('watched must be false in the data file.');

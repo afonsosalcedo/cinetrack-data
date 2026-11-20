@@ -1,7 +1,6 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 const { validateFilms, validateManifest, YEAR_PATTERN } = require('./validate');
 
 const app = express();
@@ -149,120 +148,111 @@ app.post('/api/manifest', (req, res) => {
   }
 });
 
-// Helper function to fetch movie credits
-function fetchMovieCredits(movieId) {
-  return new Promise((resolve, reject) => {
-    const creditsPath = `/3/movie/${movieId}/credits?api_key=${TMDB_API_KEY}`;
-    const options = {
-      hostname: TMDB_BASE_URL,
-      path: creditsPath,
-      method: 'GET'
-    };
+// ---- TMDB ----
+// Used only to help choose the right film and to show what an ID points to.
+// Nothing fetched here is written to the data files: they hold the TMDB ID
+// and the app fetches the rest itself.
 
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const credits = JSON.parse(data);
-          const director = credits.crew?.find(c => c.job === 'Director');
-          resolve(director ? director.name : null);
-        } catch (e) {
-          resolve(null);
-        }
-      });
-    });
-    req.on('error', () => resolve(null));
-    req.end();
-  });
+async function tmdbGet(pathAndQuery) {
+  if (!TMDB_API_KEY) throw new Error('TMDB_API_KEY is not set in editor/.env');
+  const separator = pathAndQuery.includes('?') ? '&' : '?';
+  const response = await fetch(`https://${TMDB_BASE_URL}/3${pathAndQuery}${separator}api_key=${TMDB_API_KEY}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`TMDB answered ${response.status}`);
+  return response.json();
 }
 
-// Search TMDB for movies
+// Kept in memory for this run of the editor only, so flipping between
+// screens does not ask TMDB for the same film again.
+const filmCache = new Map();
+
+function summarize(movie) {
+  const director = movie.credits?.crew?.find(person => person.job === 'Director');
+  return {
+    id: movie.id,
+    title: movie.title,
+    originalTitle: movie.original_title && movie.original_title !== movie.title ? movie.original_title : null,
+    year: movie.release_date ? movie.release_date.substring(0, 4) : null,
+    director: director ? director.name : null,
+    runtime: movie.runtime || null,
+    overview: movie.overview ? movie.overview.substring(0, 150) + (movie.overview.length > 150 ? '...' : '') : '',
+    poster: movie.poster_path ? `https://image.tmdb.org/t/p/w185${movie.poster_path}` : null
+  };
+}
+
+async function fetchFilm(id) {
+  if (filmCache.has(id)) return filmCache.get(id);
+  const movie = await tmdbGet(`/movie/${id}?append_to_response=credits`);
+  const summary = movie ? summarize(movie) : null;
+  filmCache.set(id, summary);
+  return summary;
+}
+
+// Runs `task` over `items`, a few at a time, to stay well inside TMDB's limits.
+async function mapLimited(items, limit, task) {
+  const results = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      try { results[index] = await task(items[index]); } catch (e) { results[index] = { error: e.message }; }
+    }
+  }));
+  return results;
+}
+
+// Search TMDB for movies. Matches English, original and alternative titles.
 app.get('/api/tmdb/search', async (req, res) => {
   const query = req.query.q;
   if (!query) {
     return res.status(400).json({ error: 'Query parameter q is required' });
   }
-
-  const searchPath = `/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&include_adult=false`;
-
-  const options = {
-    hostname: TMDB_BASE_URL,
-    path: searchPath,
-    method: 'GET'
-  };
-
-  const tmdbReq = https.request(options, async (tmdbRes) => {
-    let data = '';
-    tmdbRes.on('data', chunk => data += chunk);
-    tmdbRes.on('end', async () => {
-      try {
-        const parsed = JSON.parse(data);
-        const topResults = (parsed.results || []).slice(0, 8);
-
-        // Fetch directors for all results in parallel
-        const directorsPromises = topResults.map(movie => fetchMovieCredits(movie.id));
-        const directors = await Promise.all(directorsPromises);
-
-        // Return simplified results with director info
-        const results = topResults.map((movie, i) => ({
-          id: movie.id,
-          title: movie.title,
-          year: movie.release_date ? movie.release_date.substring(0, 4) : 'Unknown',
-          director: directors[i] || 'Unknown',
-          overview: movie.overview ? movie.overview.substring(0, 150) + '...' : 'No description',
-          poster: movie.poster_path ? `https://image.tmdb.org/t/p/w92${movie.poster_path}` : null
-        }));
-        res.json({ results });
-      } catch (e) {
-        res.status(500).json({ error: 'Failed to parse TMDB response' });
-      }
-    });
-  });
-
-  tmdbReq.on('error', (e) => {
+  try {
+    const year = /^\d{4}$/.test(req.query.year || '') ? `&primary_release_year=${req.query.year}` : '';
+    const found = await tmdbGet(`/search/movie?query=${encodeURIComponent(query)}&include_adult=false${year}`);
+    const top = (found?.results || []).slice(0, 8);
+    const results = (await mapLimited(top, 4, movie => fetchFilm(movie.id))).filter(film => film && !film.error);
+    res.json({ results });
+  } catch (e) {
     res.status(500).json({ error: e.message });
-  });
-
-  tmdbReq.end();
+  }
 });
 
-// Get TMDB movie details by ID
-app.get('/api/tmdb/movie/:id', (req, res) => {
-  const movieId = req.params.id;
-  const detailsPath = `/3/movie/${movieId}?api_key=${TMDB_API_KEY}`;
-
-  const options = {
-    hostname: TMDB_BASE_URL,
-    path: detailsPath,
-    method: 'GET'
-  };
-
-  const tmdbReq = https.request(options, (tmdbRes) => {
-    let data = '';
-    tmdbRes.on('data', chunk => data += chunk);
-    tmdbRes.on('end', () => {
-      try {
-        const movie = JSON.parse(data);
-        res.json({
-          id: movie.id,
-          title: movie.title,
-          year: movie.release_date ? movie.release_date.substring(0, 4) : 'Unknown',
-          overview: movie.overview,
-          poster: movie.poster_path ? `https://image.tmdb.org/t/p/w185${movie.poster_path}` : null,
-          runtime: movie.runtime
-        });
-      } catch (e) {
-        res.status(500).json({ error: 'Failed to parse TMDB response' });
-      }
-    });
-  });
-
-  tmdbReq.on('error', (e) => {
+// What a list of TMDB IDs point to: /api/tmdb/films?ids=1,2,3
+app.get('/api/tmdb/films', async (req, res) => {
+  const ids = String(req.query.ids || '').split(',').filter(id => /^\d+$/.test(id)).map(Number).slice(0, 300);
+  try {
+    const found = await mapLimited(ids, 6, fetchFilm);
+    const films = {};
+    ids.forEach((id, index) => { films[id] = found[index]; });
+    res.json({ films });
+  } catch (e) {
     res.status(500).json({ error: e.message });
-  });
+  }
+});
 
-  tmdbReq.end();
+// Turns something pasted (a TMDB link, a TMDB ID, or an IMDb link or tt id)
+// into a film. For the cases where searching by title does not find it.
+app.get('/api/tmdb/resolve', async (req, res) => {
+  const pasted = String(req.query.q || '').trim();
+  try {
+    let id = null;
+    const imdb = pasted.match(/tt\d{6,}/);
+    const tmdbLink = pasted.match(/themoviedb\.org\/movie\/(\d+)/);
+    if (imdb) {
+      const found = await tmdbGet(`/find/${imdb[0]}?external_source=imdb_id`);
+      id = found?.movie_results?.[0]?.id ?? null;
+    } else if (tmdbLink) {
+      id = Number(tmdbLink[1]);
+    } else if (/^\d+$/.test(pasted)) {
+      id = Number(pasted);
+    }
+    const film = id ? await fetchFilm(id) : null;
+    if (!film) return res.status(404).json({ error: 'No film found for that link or ID' });
+    res.json({ film });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Listen on this Mac only. The editor can rewrite the data files, so it must
