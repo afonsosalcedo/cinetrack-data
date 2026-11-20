@@ -205,10 +205,52 @@
 
     /* Nomination Mode Styles */
     .nomination-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 2rem;
+      max-width: 1000px;
+      padding-bottom: 5rem;
     }
+    .nom-layout {
+      display: grid;
+      grid-template-columns: 270px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+    .cat-sidebar {
+      position: sticky;
+      top: 0;
+      max-height: calc(100vh - 60px - 4rem);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .cat-sidebar h4 {
+      color: #aaa;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 0.75rem 0 0.25rem 0.6rem;
+    }
+    .cat-sidebar h4:first-child { margin-top: 0; }
+    .cat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.4rem 0.6rem;
+      background: transparent;
+      font-size: 0.9rem;
+      font-weight: 500;
+      text-align: left;
+    }
+    .cat-item:hover { background: #0f3460; }
+    .cat-item.active, .cat-item.active:hover { background: #e94560; }
+    .cat-count { font-size: 0.8rem; color: #888; font-variant-numeric: tabular-nums; }
+    .cat-item.done .cat-count { color: #5fd38d; }
+    .cat-item.over .cat-count { color: #ffb347; font-weight: 700; }
+    .cat-item.active .cat-count { color: #fff; }
+    .cat-hint { color: #666; font-size: 0.75rem; margin: 0.75rem 0 0 0.6rem; }
+    .nomination-header h2 { color: #e94560; margin: 0; }
     .nomination-header {
       display: flex;
       align-items: center;
@@ -558,34 +600,35 @@
     let currentMode = 'film';
     let currentCategory = 'bestsupportingactor'; // First category announced
 
-    // All nomination categories with their config (ordered by typical announcement order)
+    // All nomination categories, with the Academy's own names so they match the
+    // announcement as it is read out, in the usual announcement order.
     const categories = {
       // --- FIRST CHUNK ---
-      bestsupportingactor: { label: 'Best Supporting Actor', type: 'acting', shortlist: null },
-      bestsupportingactress: { label: 'Best Supporting Actress', type: 'acting', shortlist: null },
-      bestanimatedshortfilm: { label: 'Best Animated Short Film', type: 'boolean', shortlist: 'shortlistAnimatedShort' },
-      bestliveactionshort: { label: 'Best Live Action Short Film', type: 'boolean', shortlist: 'shortlistLiveActionShort' },
-      bestcostumedesign: { label: 'Best Costume Design', type: 'boolean', shortlist: null },
-      bestmakeupandhairstyling: { label: 'Best Makeup & Hairstyling', type: 'boolean', shortlist: 'shortlistMakeupAndHairstyling' },
-      bestoriginalscore: { label: 'Best Original Score', type: 'boolean', shortlist: 'shortlistOriginalScore' },
-      bestoriginalsong: { label: 'Best Original Song', type: 'song', shortlist: 'shortlistOriginalSong' },
-      bestsound: { label: 'Best Sound', type: 'boolean', shortlist: 'shortlistSound' },
-      bestvisualeffects: { label: 'Best Visual Effects', type: 'boolean', shortlist: 'shortlistVisualEffects' },
+      bestsupportingactor: { label: 'Actor in a Supporting Role', type: 'acting', group: 1, shortlist: null },
+      bestsupportingactress: { label: 'Actress in a Supporting Role', type: 'acting', group: 1, shortlist: null },
+      bestanimatedshortfilm: { label: 'Animated Short Film', type: 'boolean', group: 1, shortlist: 'shortlistAnimatedShort' },
+      bestliveactionshort: { label: 'Live Action Short Film', type: 'boolean', group: 1, shortlist: 'shortlistLiveActionShort' },
+      bestcostumedesign: { label: 'Costume Design', type: 'boolean', group: 1, shortlist: null },
+      bestmakeupandhairstyling: { label: 'Makeup and Hairstyling', type: 'boolean', group: 1, shortlist: 'shortlistMakeupAndHairstyling' },
+      bestoriginalscore: { label: 'Music (Original Score)', type: 'boolean', group: 1, shortlist: 'shortlistOriginalScore' },
+      bestoriginalsong: { label: 'Music (Original Song)', type: 'song', group: 1, shortlist: 'shortlistOriginalSong' },
+      bestsound: { label: 'Sound', type: 'boolean', group: 1, shortlist: 'shortlistSound' },
+      bestvisualeffects: { label: 'Visual Effects', type: 'boolean', group: 1, shortlist: 'shortlistVisualEffects' },
       // --- SECOND CHUNK ---
-      bestactor: { label: 'Best Actor', type: 'acting', shortlist: null },
-      bestactress: { label: 'Best Actress', type: 'acting', shortlist: null },
-      bestanimatedfeature: { label: 'Best Animated Feature', type: 'boolean', shortlist: null },
-      bestcasting: { label: 'Best Casting', type: 'boolean', shortlist: 'shortlistCasting' },
-      bestdirector: { label: 'Best Director', type: 'boolean', shortlist: null },
-      bestdocumentaryfeature: { label: 'Best Documentary Feature', type: 'boolean', shortlist: 'shortlistDocumentaryFeature' },
-      bestdocumentaryshort: { label: 'Best Documentary Short', type: 'boolean', shortlist: 'shortlistDocumentaryShort' },
-      bestfilmediting: { label: 'Best Film Editing', type: 'boolean', shortlist: null },
-      bestinternationalfeature: { label: 'Best International Feature', type: 'boolean', shortlist: 'shortlistInternationalFeature' },
-      bestproductiondesign: { label: 'Best Production Design', type: 'boolean', shortlist: null },
-      bestoriginalscreenplay: { label: 'Best Original Screenplay', type: 'boolean', shortlist: null },
-      bestadaptedscreenplay: { label: 'Best Adapted Screenplay', type: 'boolean', shortlist: null },
-      bestcinematography: { label: 'Best Cinematography', type: 'boolean', shortlist: 'shortlistCinematography' },
-      bestpicture: { label: 'Best Picture', type: 'boolean', shortlist: null }
+      bestactor: { label: 'Actor in a Leading Role', type: 'acting', group: 2, shortlist: null },
+      bestactress: { label: 'Actress in a Leading Role', type: 'acting', group: 2, shortlist: null },
+      bestanimatedfeature: { label: 'Animated Feature Film', type: 'boolean', group: 2, shortlist: null },
+      bestcasting: { label: 'Casting', type: 'boolean', group: 2, shortlist: 'shortlistCasting' },
+      bestdirector: { label: 'Directing', type: 'boolean', group: 2, shortlist: null },
+      bestdocumentaryfeature: { label: 'Documentary Feature Film', type: 'boolean', group: 2, shortlist: 'shortlistDocumentaryFeature' },
+      bestdocumentaryshort: { label: 'Documentary Short Film', type: 'boolean', group: 2, shortlist: 'shortlistDocumentaryShort' },
+      bestfilmediting: { label: 'Film Editing', type: 'boolean', group: 2, shortlist: null },
+      bestinternationalfeature: { label: 'International Feature Film', type: 'boolean', group: 2, shortlist: 'shortlistInternationalFeature' },
+      bestproductiondesign: { label: 'Production Design', type: 'boolean', group: 2, shortlist: null },
+      bestoriginalscreenplay: { label: 'Writing (Original Screenplay)', type: 'boolean', group: 2, shortlist: null },
+      bestadaptedscreenplay: { label: 'Writing (Adapted Screenplay)', type: 'boolean', group: 2, shortlist: null },
+      bestcinematography: { label: 'Cinematography', type: 'boolean', group: 2, shortlist: 'shortlistCinematography' },
+      bestpicture: { label: 'Best Picture', type: 'boolean', group: 2, shortlist: null }
     };
 
     const categoryLabels = {};
@@ -944,30 +987,55 @@
 
     // ============ NOMINATION MODE FUNCTIONS ============
 
+    function expectedCount(cat) {
+      return cat === 'bestpicture' ? 10 : 5;
+    }
+
+    function renderCategorySidebar() {
+      const item = ([key, val]) => {
+        const count = getNominationCount(key);
+        const expected = expectedCount(key);
+        const state = count === expected ? 'done' : count > expected ? 'over' : '';
+        return `
+          <button class="cat-item ${key === currentCategory ? 'active' : ''} ${state}" onclick="changeCategory('${key}')">
+            <span>${esc(val.label)}</span>
+            <span class="cat-count">${count}/${expected}</span>
+          </button>
+        `;
+      };
+      const entries = Object.entries(categories);
+      return `
+        <nav class="cat-sidebar" id="catSidebar">
+          <h4>First group</h4>
+          ${entries.filter(([, val]) => val.group === 1).map(item).join('')}
+          <h4>Second group</h4>
+          ${entries.filter(([, val]) => val.group === 2).map(item).join('')}
+          <p class="cat-hint">↑ ↓ to move between categories</p>
+        </nav>
+      `;
+    }
+
     function renderNominationMode() {
       const editor = document.getElementById('editor');
       const cat = categories[currentCategory];
+      const sidebarScroll = document.getElementById('catSidebar')?.scrollTop || 0;
+      const count = getNominationCount(currentCategory);
 
       editor.innerHTML = `
-        <div class="nomination-container">
-          <div class="nomination-header">
-            <select id="categorySelect" onchange="changeCategory(this.value)">
-              ${Object.entries(categories).map(([key, val]) => `
-                <option value="${key}" ${key === currentCategory ? 'selected' : ''}>${val.label}</option>
-              `).join('')}
-            </select>
-            <span class="nom-count">${getNominationCount(currentCategory)} nominated</span>
-          </div>
+        <div class="nom-layout">
+          ${renderCategorySidebar()}
+          <div class="nomination-container">
+            <div class="nomination-header">
+              <h2>${esc(cat.label)}</h2>
+              <span class="nom-count">${count} of ${expectedCount(currentCategory)} nominated</span>
+            </div>
 
-          ${renderCategoryUI(currentCategory)}
-
-          <div class="category-nav">
-            <button class="secondary" onclick="prevCategory()">Previous Category</button>
-            <button class="secondary" onclick="nextCategory()">Next Category</button>
+            ${renderCategoryUI(currentCategory)}
           </div>
         </div>
         <button class="save-float" onclick="saveFilms()">Save All Changes</button>
       `;
+      document.getElementById('catSidebar').scrollTop = sidebarScroll;
     }
 
     function changeCategory(cat) {
@@ -988,6 +1056,14 @@
       currentCategory = keys[(idx + 1) % keys.length];
       renderNominationMode();
     }
+
+    // Arrow keys move between categories, unless you are typing in a field.
+    document.addEventListener('keydown', (e) => {
+      if (currentMode !== 'nomination' || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); nextCategory(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); prevCategory(); }
+    });
 
     function getNominationCount(cat) {
       const config = categories[cat];
