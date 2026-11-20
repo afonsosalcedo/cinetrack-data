@@ -22,6 +22,8 @@ const APP_CATEGORY = {
 };
 
 const TEST_YEAR = '9999';
+// The season whose films the app shows in its test season (OscarYear.testYear in the app).
+const TEST_SEASON_FILMS = '2025';
 
 const ceremony = {
   target: 'rehearsal', // 'rehearsal' (test year) or 'live' (the season on screen)
@@ -167,7 +169,8 @@ function renderCeremonyMode() {
             ? `<strong>Finished.</strong> The ${esc(currentYear)} results are locked and shown for reference.`
             : live
             ? `<strong>LIVE.</strong> Winners go to everyone using the ${esc(currentYear)} season, immediately.`
-            : `<strong>Rehearsal.</strong> Winners go to the test season (${TEST_YEAR}) only. Nobody's real ballot is affected.`}
+            : `<strong>Rehearsal.</strong> Winners go to the test season (${TEST_YEAR}) only. Nobody's real ballot is affected.
+               ${currentYear === TEST_SEASON_FILMS ? '' : `<br><span class="entry-secondary">The app's test season uses the ${TEST_SEASON_FILMS} films. To see ballots score in the app, choose the ${TEST_SEASON_FILMS} season in the menu above.</span>`}`}
         </div>
         ${notice}
         ${locked ? '' : renderCeremonyStart()}
