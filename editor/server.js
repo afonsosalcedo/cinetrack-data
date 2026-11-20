@@ -109,11 +109,7 @@ app.post('/api/films/:year', (req, res) => {
       return res.status(400).json({ error: 'Not saved: the data has errors', errors, warnings });
     }
 
-    // Bump patch version
-    const versionParts = manifest.version.split('.');
-    versionParts[2] = parseInt(versionParts[2]) + 1;
-    manifest.version = versionParts.join('.');
-    manifest.lastUpdated = new Date().toISOString();
+    bumpVersion(manifest);
     if (typeof changelog === 'string' && changelog.trim()) {
       manifest.changelog = changelog.trim();
     }
@@ -148,6 +144,67 @@ app.post('/api/manifest', (req, res) => {
   }
 });
 
+// ---- Seasons ----
+
+function bumpVersion(manifest) {
+  const parts = manifest.version.split('.');
+  parts[2] = parseInt(parts[2]) + 1;
+  manifest.version = parts.join('.');
+  manifest.lastUpdated = new Date().toISOString();
+}
+
+// Copies the season fields a form may set. Empty optional dates are removed.
+function applySeasonFields(entry, body) {
+  entry.ceremonyDate = body.ceremonyDate;
+  for (const field of ['nominationsDate', 'shortlistDate']) {
+    if (body[field]) entry[field] = body[field];
+    else delete entry[field];
+  }
+  if (typeof body.nominationsAnnounced === 'boolean') entry.nominationsAnnounced = body.nominationsAnnounced;
+}
+
+// Create a season: an empty film file plus its manifest entry.
+app.post('/api/seasons', (req, res) => {
+  try {
+    const id = String(req.body.id || '');
+    if (!YEAR_PATTERN.test(id)) return res.status(400).json({ error: 'The season needs a four-digit year' });
+    const manifest = readManifest();
+    const filepath = path.join(DATA_DIR, `oscars${id}.json`);
+    if (manifest.years.some(y => y.id === id) || fs.existsSync(filepath)) {
+      return res.status(400).json({ error: `Season ${id} already exists` });
+    }
+    const entry = { id, filename: `oscars${id}.json`, nominationsAnnounced: false, filmCount: 0 };
+    applySeasonFields(entry, { ...req.body, nominationsAnnounced: false });
+    manifest.years.push(entry);
+    manifest.years.sort((a, b) => b.id.localeCompare(a.id));
+    bumpVersion(manifest);
+    const { errors } = validateManifest(manifest);
+    if (errors.length > 0) return res.status(400).json({ error: 'Not saved', errors });
+    writeJsonAtomic(filepath, []);
+    writeJsonAtomic(path.join(DATA_DIR, 'manifest.json'), manifest);
+    res.json({ success: true, manifest });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Change a season's dates or its nominations-announced flag.
+app.put('/api/seasons/:year', (req, res) => {
+  try {
+    const manifest = readManifest();
+    const entry = manifest.years.find(y => y.id === req.params.year);
+    if (!entry) return res.status(404).json({ error: 'Season not found' });
+    applySeasonFields(entry, req.body);
+    bumpVersion(manifest);
+    const { errors } = validateManifest(manifest);
+    if (errors.length > 0) return res.status(400).json({ error: 'Not saved', errors });
+    writeJsonAtomic(path.join(DATA_DIR, 'manifest.json'), manifest);
+    res.json({ success: true, manifest });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ---- TMDB ----
 // Used only to help choose the right film and to show what an ID points to.
 // Nothing fetched here is written to the data files: they hold the TMDB ID
@@ -177,6 +234,8 @@ function summarize(movie) {
     runtime: movie.runtime || null,
     genres: (movie.genres || []).map(genre => genre.name),
     fullOverview: movie.overview || '',
+    // Top-billed names, so an acting nominee can be picked instead of typed.
+    cast: (movie.credits?.cast || []).slice().sort((a, b) => a.order - b.order).slice(0, 20).map(person => person.name),
     overview: movie.overview ? movie.overview.substring(0, 150) + (movie.overview.length > 150 ? '...' : '') : '',
     poster: movie.poster_path ? `https://image.tmdb.org/t/p/w185${movie.poster_path}` : null
   };
@@ -204,16 +263,32 @@ async function mapLimited(items, limit, task) {
 }
 
 // Search TMDB for movies. Matches English, original and alternative titles.
+//
+// A plain title search returns the most popular films first, so a small film
+// that shares its title with better-known ones can be missing altogether.
+// When `season` is given, the search is repeated for each release year that
+// can qualify for that season and the results are merged, which surfaces it.
 app.get('/api/tmdb/search', async (req, res) => {
   const query = req.query.q;
   if (!query) {
     return res.status(400).json({ error: 'Query parameter q is required' });
   }
   try {
-    const year = /^\d{4}$/.test(req.query.year || '') ? `&primary_release_year=${req.query.year}` : '';
-    const found = await tmdbGet(`/search/movie?query=${encodeURIComponent(query)}&include_adult=false${year}`);
-    const top = (found?.results || []).slice(0, 8);
-    const results = (await mapLimited(top, 4, movie => fetchFilm(movie.id))).filter(film => film && !film.error);
+    const base = `/search/movie?query=${encodeURIComponent(query)}&include_adult=false`;
+    const season = /^\d{4}$/.test(req.query.season || '') ? parseInt(req.query.season) : null;
+    const searches = [base];
+    if (season) {
+      for (const year of [season - 1, season - 2, season]) searches.push(`${base}&primary_release_year=${year}`);
+    }
+    const pages = await mapLimited(searches, 4, tmdbGet);
+    const ids = [];
+    pages.forEach((page, index) => {
+      const results = (page && !page.error && page.results) || [];
+      for (const movie of results.slice(0, index === 0 ? 8 : 6)) {
+        if (!ids.includes(movie.id)) ids.push(movie.id);
+      }
+    });
+    const results = (await mapLimited(ids, 6, fetchFilm)).filter(film => film && !film.error);
     res.json({ results });
   } catch (e) {
     res.status(500).json({ error: e.message });

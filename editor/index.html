@@ -10,17 +10,22 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #1a1a2e;
       color: #eee;
-      min-height: 100vh;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
     header {
       background: #16213e;
       padding: 1rem 2rem;
       display: flex;
       align-items: center;
-      gap: 1.5rem;
+      gap: 0.75rem 1rem;
+      flex-wrap: wrap;
       border-bottom: 1px solid #0f3460;
     }
     header h1 { font-size: 1.5rem; color: #e94560; }
+    header h1, header button, header select { white-space: nowrap; }
+    header button, header select { font-size: 0.9rem; padding: 0.45rem 0.8rem; }
     select, input, button {
       padding: 0.5rem 1rem;
       border-radius: 6px;
@@ -63,7 +68,7 @@
     .container {
       display: grid;
       grid-template-columns: 350px 1fr;
-      height: calc(100vh - 60px);
+      flex: 1;
       min-height: 0;
     }
     .container.nomination-mode {
@@ -217,7 +222,7 @@
     .cat-sidebar {
       position: sticky;
       top: 0;
-      max-height: calc(100vh - 60px - 4rem);
+      max-height: calc(100vh - 11rem);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -425,6 +430,40 @@
       color: rgba(255,255,255,0.8);
     }
 
+    /* Category entry: quick add, entries, paste */
+    .stage-toggle { margin-bottom: 0.75rem; }
+    .stage-toggle button { flex: 1; font-size: 0.85rem; padding: 0.45rem 0.5rem; }
+    .quick-add { display: flex; gap: 0.5rem; }
+    .quick-add input { flex: 1; font-size: 1.15rem; padding: 0.8rem 1rem; border: 2px solid #e94560; }
+    #quickResults { display: none; background: #16213e; border: 1px solid #0f3460; border-radius: 6px; margin-top: 0.4rem; overflow: hidden; }
+    .quick-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; cursor: pointer; }
+    .quick-item:hover { background: #0f3460; }
+    .quick-item.active { background: #0f3460; box-shadow: inset 3px 0 0 #e94560; }
+    .thumb { width: 34px; height: 51px; object-fit: cover; border-radius: 3px; background: #0f3460; flex-shrink: 0; }
+    .entry-text { flex: 1; min-width: 0; }
+    .entry-primary { font-weight: 600; }
+    .entry-secondary { color: #aaa; font-size: 0.85rem; margin-top: 0.1rem; }
+    .chip-dim { color: #aaa; font-weight: 400; font-size: 0.85rem; }
+    .nominated-section, .shortlisted-section { margin-top: 1.5rem; }
+    .writers { width: 100%; max-width: 420px; margin-top: 0.4rem; font-size: 0.85rem; padding: 0.3rem 0.6rem; }
+    .paste-panel textarea { width: 100%; background: #16213e; color: #eee; border: 1px solid #0f3460; border-radius: 6px; padding: 0.75rem; font: inherit; margin: 0.75rem 0; }
+    .paste-panel .row, dialog .row { display: flex; gap: 0.5rem; margin-top: 1rem; }
+    .paste-row { display: grid; grid-template-columns: auto 1fr 1.4fr 1.2fr; gap: 0.75rem; align-items: center; padding: 0.5rem 0.75rem; background: #16213e; border-left: 3px solid transparent; border-radius: 6px; margin-top: 0.4rem; }
+    .paste-row.check { border-left-color: #ffb347; }
+    .paste-row.missing { border-left-color: #ff6b6b; }
+    .paste-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: #e94560; }
+    .paste-match { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+    .paste-fix { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+    .paste-fix select, .paste-fix input { width: 100%; font-size: 0.8rem; padding: 0.3rem 0.5rem; }
+
+    /* Season dialog */
+    dialog { background: #16213e; color: #eee; border: 1px solid #0f3460; border-radius: 10px; padding: 1.5rem; width: min(520px, 92vw); }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+    dialog h3 { color: #e94560; margin-bottom: 0.25rem; }
+    .season-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.5rem; align-items: center; margin-top: 0.75rem; }
+    .season-row input { background: #1a1a2e; color-scheme: dark; }
+    .season-errors { list-style: none; color: #ff8a8a; font-size: 0.9rem; margin-top: 0.75rem; }
+
     /* What the TMDB ID points to, in Film Mode */
     .match-panel { display: flex; gap: 1.25rem; background: #16213e; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; max-width: 760px; }
     .match-panel img, .match-panel .no-poster { width: 130px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; background: #0f3460; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #666; font-size: 0.8rem; }
@@ -599,15 +638,18 @@
   <header>
     <h1>CineTrack Editor</h1>
     <select id="yearSelect"></select>
+    <button class="secondary" onclick="openSeasonDialog(false)" title="Dates and nominations flag for this season">Season settings</button>
+    <button class="secondary" onclick="openSeasonDialog(true)">New season</button>
     <div class="mode-toggle">
       <button id="filmModeBtn" class="active" onclick="setMode('film')">Film Mode</button>
-      <button id="nomModeBtn" onclick="setMode('nomination')">Nomination Mode</button>
+      <button id="nomModeBtn" onclick="setMode('nomination')">Shortlists &amp; Nominations</button>
       <button id="tmdbModeBtn" onclick="setMode('tmdb')">TMDB Check</button>
     </div>
     <span id="statusMsg" class="status" style="display: none;"></span>
   </header>
 
   <div class="issues" id="issues" style="display: none;"></div>
+  <dialog id="seasonDialog"></dialog>
 
   <div class="container" id="mainContainer">
     <aside class="sidebar" id="sidebar">
@@ -615,7 +657,7 @@
         <input type="text" id="searchInput" placeholder="Search films...">
       </div>
       <div class="film-list" id="filmList"></div>
-      <button class="add-film-btn" onclick="addNewFilm()">+ Add New Film</button>
+      <button class="add-film-btn" onclick="addNewFilmFromTmdb()">+ Add New Film</button>
     </aside>
 
     <main class="editor" id="editor">
@@ -699,13 +741,7 @@
       manifest = await fetch('/api/manifest').then(r => r.json());
       currentYear = manifest.years[0].id;
       const yearSelect = document.getElementById('yearSelect');
-      manifest.years.forEach(y => {
-        const opt = document.createElement('option');
-        opt.value = y.id;
-        opt.textContent = `Oscars ${y.id}${y.nominationsAnnounced ? ' (Nominations)' : ' (Shortlist)'}`;
-        yearSelect.appendChild(opt);
-      });
-      yearSelect.value = currentYear;
+      refreshYearSelect();
       yearSelect.onchange = () => loadYear(yearSelect.value);
       await loadYear(currentYear);
     }
@@ -715,6 +751,9 @@
       films = await fetch(`/api/films/${year}`).then(r => r.json());
       selectedFilmId = null;
       tmdbPickingFilmId = null;
+      entryStage = null;
+      pasteState = null;
+      resetQuick();
       if (currentMode === 'film') {
         renderFilmList();
         document.getElementById('editor').innerHTML = '<div class="empty-state">Select a film to edit</div>';
@@ -1071,6 +1110,12 @@
       return newFilm;
     }
 
+    // A new film is always matched to TMDB straight away, so it never sits
+    // in the data without an ID.
+    function addNewFilmFromTmdb() {
+      if (addNewFilm()) changeMatch();
+    }
+
     function deleteFilm() {
       if (!selectedFilmId) return;
       const film = films.find(f => f.id === selectedFilmId);
@@ -1081,432 +1126,8 @@
       document.getElementById('editor').innerHTML = '<div class="empty-state">Select a film to edit</div>';
     }
 
-    // ============ NOMINATION MODE FUNCTIONS ============
-
-    function expectedCount(cat) {
-      return cat === 'bestpicture' ? 10 : 5;
-    }
-
-    function renderCategorySidebar() {
-      const item = ([key, val]) => {
-        const count = getNominationCount(key);
-        const expected = expectedCount(key);
-        const state = count === expected ? 'done' : count > expected ? 'over' : '';
-        return `
-          <button class="cat-item ${key === currentCategory ? 'active' : ''} ${state}" onclick="changeCategory('${key}')">
-            <span>${esc(val.label)}</span>
-            <span class="cat-count">${count}/${expected}</span>
-          </button>
-        `;
-      };
-      const entries = Object.entries(categories);
-      return `
-        <nav class="cat-sidebar" id="catSidebar">
-          <h4>First group</h4>
-          ${entries.filter(([, val]) => val.group === 1).map(item).join('')}
-          <h4>Second group</h4>
-          ${entries.filter(([, val]) => val.group === 2).map(item).join('')}
-          <p class="cat-hint">↑ ↓ to move between categories</p>
-        </nav>
-      `;
-    }
-
-    function renderNominationMode() {
-      const editor = document.getElementById('editor');
-      const cat = categories[currentCategory];
-      const sidebarScroll = document.getElementById('catSidebar')?.scrollTop || 0;
-      const count = getNominationCount(currentCategory);
-
-      editor.innerHTML = `
-        <div class="nom-layout">
-          ${renderCategorySidebar()}
-          <div class="nomination-container">
-            <div class="nomination-header">
-              <h2>${esc(cat.label)}</h2>
-              <span class="nom-count">${count} of ${expectedCount(currentCategory)} nominated</span>
-            </div>
-
-            ${renderCategoryUI(currentCategory)}
-          </div>
-        </div>
-        <button class="save-float" onclick="saveFilms()">Save All Changes</button>
-      `;
-      document.getElementById('catSidebar').scrollTop = sidebarScroll;
-    }
-
-    function changeCategory(cat) {
-      currentCategory = cat;
-      renderNominationMode();
-    }
-
-    function prevCategory() {
-      const keys = Object.keys(categories);
-      const idx = keys.indexOf(currentCategory);
-      currentCategory = keys[(idx - 1 + keys.length) % keys.length];
-      renderNominationMode();
-    }
-
-    function nextCategory() {
-      const keys = Object.keys(categories);
-      const idx = keys.indexOf(currentCategory);
-      currentCategory = keys[(idx + 1) % keys.length];
-      renderNominationMode();
-    }
-
-    // Arrow keys move between categories, unless you are typing in a field.
-    document.addEventListener('keydown', (e) => {
-      if (currentMode !== 'nomination' || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
-      if (e.key === 'ArrowDown') { e.preventDefault(); nextCategory(); }
-      if (e.key === 'ArrowUp') { e.preventDefault(); prevCategory(); }
-    });
-
-    function getNominationCount(cat) {
-      const config = categories[cat];
-      if (config.type === 'boolean') {
-        return films.filter(f => f[cat]).length;
-      } else if (config.type === 'acting') {
-        return films.reduce((sum, f) => sum + (f[cat] ? f[cat].length : 0), 0);
-      } else if (config.type === 'song') {
-        // Count songs that are nominated (film has the nomination marked)
-        return films.reduce((sum, f) => {
-          if (f.bestoriginalsong && f.bestoriginalsong.length > 0) {
-            // Each song in the array counts as a nomination
-            return sum + f.bestoriginalsong.filter(s => s.nominated !== false).length;
-          }
-          return sum;
-        }, 0);
-      }
-      return 0;
-    }
-
-    function renderCategoryUI(cat) {
-      const config = categories[cat];
-
-      if (config.type === 'boolean') {
-        return renderBooleanCategory(cat, config);
-      } else if (config.type === 'acting') {
-        return renderActingCategory(cat, config);
-      } else if (config.type === 'song') {
-        return renderSongCategory(cat, config);
-      }
-      return '';
-    }
-
-    function renderBooleanCategory(cat, config) {
-      const shortlistField = config.shortlist;
-      const shortlistedFilms = shortlistField
-        ? films.filter(f => f[shortlistField]).sort((a, b) => a.title.localeCompare(b.title))
-        : [];
-      const nominatedFilms = films.filter(f => f[cat]).sort((a, b) => a.title.localeCompare(b.title));
-      const allFilmsSorted = films.slice().sort((a, b) => a.title.localeCompare(b.title));
-
-      return `
-        ${shortlistedFilms.length > 0 ? `
-          <div class="shortlisted-section">
-            <h3>Shortlisted Films (click to nominate)</h3>
-            <div class="film-chips">
-              ${shortlistedFilms.map(f => `
-                <div class="film-chip ${f[cat] ? 'nominated' : ''}" onclick="toggleBooleanNomination('${f.id}', '${cat}')">
-                  ${esc(f.title)}
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : ''}
-
-        <div class="nominated-section">
-          <h3>Nominated (${nominatedFilms.length})</h3>
-          ${nominatedFilms.length > 0 ? `
-            <div class="nominated-list">
-              ${nominatedFilms.map(f => `
-                <div class="nominated-item">
-                  <span class="film-title">${esc(f.title)}</span>
-                  <button class="secondary" onclick="toggleBooleanNomination('${f.id}', '${cat}')">Remove</button>
-                </div>
-              `).join('')}
-            </div>
-          ` : '<p style="color: #666;">No nominations yet</p>'}
-        </div>
-
-        <div class="quick-add-section">
-          <h4>Add from all films or create new:</h4>
-          <div class="add-nomination-form">
-            <div class="all-films-dropdown">
-              <input type="text" class="dropdown-search" id="filmSearch-${cat}"
-                     placeholder="Search all films..."
-                     oninput="filterFilmDropdown('${cat}')"
-                     onfocus="openFilmDropdown('${cat}')">
-              <div class="dropdown-list" id="filmDropdown-${cat}">
-                ${allFilmsSorted.filter(f => !f[cat]).map(f => `
-                  <div class="dropdown-item" onclick="toggleBooleanNomination('${f.id}', '${cat}'); closeFilmDropdown('${cat}');">
-                    ${esc(f.title)}
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            <button onclick="addNewFilmAndNominate('${cat}')">+ New Film</button>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderActingCategory(cat, config) {
-      const nominations = [];
-      films.forEach(f => {
-        if (f[cat] && f[cat].length > 0) {
-          f[cat].forEach((entry, index) => {
-            nominations.push({ film: f, name: entry.actorName, index });
-          });
-        }
-      });
-      nominations.sort((a, b) => a.name.localeCompare(b.name));
-
-      const allFilmsSorted = films.slice().sort((a, b) => a.title.localeCompare(b.title));
-
-      return `
-        <div class="nominated-section">
-          <h3>Nominated (${nominations.length})</h3>
-          ${nominations.length > 0 ? `
-            <div class="nominated-list">
-              ${nominations.map(n => `
-                <div class="nominated-item">
-                  <span class="person-name">${esc(n.name)}</span>
-                  <span class="film-title">- ${esc(n.film.title)}</span>
-                  <button class="secondary" onclick="removeActingNomination('${n.film.id}', '${cat}', ${n.index})">Remove</button>
-                </div>
-              `).join('')}
-            </div>
-          ` : '<p style="color: #666;">No nominations yet</p>'}
-        </div>
-
-        <div class="quick-add-section">
-          <h4>Add nomination:</h4>
-          <div class="add-nomination-form">
-            <input type="text" id="actorName-${cat}" placeholder="Actor/Actress name">
-            <select id="actorFilm-${cat}">
-              <option value="">Select film...</option>
-              ${allFilmsSorted.map(f => `<option value="${f.id}">${esc(f.title)}</option>`).join('')}
-            </select>
-            <button onclick="addActingNomination('${cat}')">+ Add</button>
-          </div>
-          <div class="add-nomination-form" style="margin-top: 0.5rem;">
-            <input type="text" id="newFilmActorName-${cat}" placeholder="Actor name for new film">
-            <input type="text" id="newFilmTitle-${cat}" placeholder="New film title">
-            <button onclick="addActingNominationNewFilm('${cat}')">+ Add with New Film</button>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderSongCategory(cat, config) {
-      const shortlistField = config.shortlist;
-
-      // Get all songs from shortlisted films
-      const shortlistedSongs = [];
-      const nominatedSongs = [];
-
-      films.forEach(f => {
-        if (f.bestoriginalsong && f.bestoriginalsong.length > 0) {
-          f.bestoriginalsong.forEach((song, idx) => {
-            const songData = { film: f, song: song, index: idx };
-            if (song.nominated) {
-              nominatedSongs.push(songData);
-            } else if (f[shortlistField]) {
-              shortlistedSongs.push(songData);
-            }
-          });
-        }
-      });
-
-      shortlistedSongs.sort((a, b) => a.song.songTitle.localeCompare(b.song.songTitle));
-      nominatedSongs.sort((a, b) => a.song.songTitle.localeCompare(b.song.songTitle));
-
-      const allFilmsSorted = films.slice().sort((a, b) => a.title.localeCompare(b.title));
-
-      return `
-        ${shortlistedSongs.length > 0 ? `
-          <div class="shortlisted-section">
-            <h3>Shortlisted Songs (click to nominate)</h3>
-            <div class="song-chips">
-              ${shortlistedSongs.map(s => `
-                <div class="song-chip" onclick="toggleSongNomination('${s.film.id}', ${s.index})">
-                  <span class="song-title">"${esc(s.song.songTitle)}"</span>
-                  <span class="song-film">from ${esc(s.film.title)}</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : ''}
-
-        <div class="nominated-section">
-          <h3>Nominated (${nominatedSongs.length})</h3>
-          ${nominatedSongs.length > 0 ? `
-            <div class="song-chips">
-              ${nominatedSongs.map(s => `
-                <div class="song-chip nominated" onclick="toggleSongNomination('${s.film.id}', ${s.index})">
-                  <span class="song-title">"${esc(s.song.songTitle)}"</span>
-                  <span class="song-film">from ${esc(s.film.title)}</span>
-                </div>
-              `).join('')}
-            </div>
-          ` : '<p style="color: #666;">No nominations yet</p>'}
-        </div>
-
-        <div class="quick-add-section">
-          <h4>Add new song nomination:</h4>
-          <div class="add-nomination-form">
-            <input type="text" id="newSongTitle" placeholder="Song title">
-            <select id="newSongFilm">
-              <option value="">Select film...</option>
-              ${allFilmsSorted.map(f => `<option value="${f.id}">${esc(f.title)}</option>`).join('')}
-            </select>
-            <button onclick="addSongNomination()">+ Add Song</button>
-          </div>
-          <div class="add-nomination-form" style="margin-top: 0.5rem;">
-            <input type="text" id="newSongTitleNewFilm" placeholder="Song title">
-            <input type="text" id="newSongFilmTitle" placeholder="New film title">
-            <button onclick="addSongNominationNewFilm()">+ Add with New Film</button>
-          </div>
-        </div>
-      `;
-    }
-
-    // Nomination mode actions
-    function toggleBooleanNomination(filmId, cat) {
-      const film = films.find(f => f.id === filmId);
-      if (film) {
-        film[cat] = !film[cat];
-        renderNominationMode();
-      }
-    }
-
-    function addNewFilmAndNominate(cat) {
-      const title = prompt('Enter new film title:');
-      if (!title) return;
-
-      const newFilm = addNewFilm(title);
-      if (newFilm) {
-        newFilm[cat] = true;
-        renderNominationMode();
-      }
-    }
-
-    function addActingNomination(cat) {
-      const name = document.getElementById(`actorName-${cat}`).value.trim();
-      const filmId = document.getElementById(`actorFilm-${cat}`).value;
-
-      if (!name || !filmId) {
-        alert('Please enter actor name and select a film');
-        return;
-      }
-
-      const film = films.find(f => f.id === filmId);
-      if (film) {
-        if (!film[cat]) film[cat] = [];
-        if (!film[cat].some(entry => entry.actorName === name)) {
-          film[cat].push({ actorName: name });
-        }
-        renderNominationMode();
-      }
-    }
-
-    function addActingNominationNewFilm(cat) {
-      const name = document.getElementById(`newFilmActorName-${cat}`).value.trim();
-      const filmTitle = document.getElementById(`newFilmTitle-${cat}`).value.trim();
-
-      if (!name || !filmTitle) {
-        alert('Please enter both actor name and film title');
-        return;
-      }
-
-      const newFilm = addNewFilm(filmTitle);
-      if (newFilm) {
-        newFilm[cat] = [{ actorName: name }];
-        renderNominationMode();
-      }
-    }
-
-    function removeActingNomination(filmId, cat, index) {
-      const film = films.find(f => f.id === filmId);
-      if (film && film[cat]) {
-        film[cat].splice(index, 1);
-        renderNominationMode();
-      }
-    }
-
-    function toggleSongNomination(filmId, songIndex) {
-      const film = films.find(f => f.id === filmId);
-      if (film && film.bestoriginalsong && film.bestoriginalsong[songIndex]) {
-        film.bestoriginalsong[songIndex].nominated = !film.bestoriginalsong[songIndex].nominated;
-        renderNominationMode();
-      }
-    }
-
-    function addSongNomination() {
-      const songTitle = document.getElementById('newSongTitle').value.trim();
-      const filmId = document.getElementById('newSongFilm').value;
-
-      if (!songTitle || !filmId) {
-        alert('Please enter song title and select a film');
-        return;
-      }
-
-      const film = films.find(f => f.id === filmId);
-      if (film) {
-        if (!film.bestoriginalsong) film.bestoriginalsong = [];
-        film.bestoriginalsong.push({ songTitle: songTitle, songwriters: [], nominated: true });
-        renderNominationMode();
-      }
-    }
-
-    function addSongNominationNewFilm() {
-      const songTitle = document.getElementById('newSongTitleNewFilm').value.trim();
-      const filmTitle = document.getElementById('newSongFilmTitle').value.trim();
-
-      if (!songTitle || !filmTitle) {
-        alert('Please enter both song title and film title');
-        return;
-      }
-
-      const newFilm = addNewFilm(filmTitle);
-      if (newFilm) {
-        newFilm.bestoriginalsong = [{ songTitle: songTitle, songwriters: [], nominated: true }];
-        renderNominationMode();
-      }
-    }
-
-    // Dropdown helpers
-    function openFilmDropdown(cat) {
-      document.getElementById(`filmDropdown-${cat}`).classList.add('open');
-    }
-
-    function closeFilmDropdown(cat) {
-      document.getElementById(`filmDropdown-${cat}`).classList.remove('open');
-    }
-
-    function filterFilmDropdown(cat) {
-      const search = document.getElementById(`filmSearch-${cat}`).value.toLowerCase();
-      const dropdown = document.getElementById(`filmDropdown-${cat}`);
-      const allFilmsSorted = films.slice().sort((a, b) => a.title.localeCompare(b.title));
-
-      dropdown.innerHTML = allFilmsSorted
-        .filter(f => !f[cat] && f.title.toLowerCase().includes(search))
-        .map(f => `
-          <div class="dropdown-item" onclick="toggleBooleanNomination('${f.id}', '${cat}'); closeFilmDropdown('${cat}');">
-            ${esc(f.title)}
-          </div>
-        `).join('');
-
-      dropdown.classList.add('open');
-    }
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.all-films-dropdown')) {
-        document.querySelectorAll('.dropdown-list').forEach(d => d.classList.remove('open'));
-      }
-    });
+    // The Shortlists and Nominations screens live in category-entry.js,
+    // and season settings in seasons.js.
 
     // ============ TMDB CHECK MODE ============
     // Shows what every film's TMDB ID actually points to (poster, title,
@@ -1680,7 +1301,7 @@
       if (!input || !resultsDiv || !input.value.trim()) return;
       resultsDiv.innerHTML = '<p style="color: #aaa;">Searching...</p>';
       try {
-        const data = await fetch(`/api/tmdb/search?q=${encodeURIComponent(input.value.trim())}`).then(r => r.json());
+        const data = await fetch(`/api/tmdb/search?q=${encodeURIComponent(input.value.trim())}&season=${currentYear}`).then(r => r.json());
         if (data.error) throw new Error(data.error);
         resultsDiv.innerHTML = data.results.length
           ? renderTmdbResults(data.results)
@@ -1785,7 +1406,9 @@
 
     document.getElementById('searchInput').oninput = renderFilmList;
 
-    init();
   </script>
+  <script src="category-entry.js"></script>
+  <script src="seasons.js"></script>
+  <script>init();</script>
 </body>
 </html>
