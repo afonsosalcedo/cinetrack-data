@@ -1446,6 +1446,12 @@
     let tmdbPickingFilmId = null; // the film whose match is being chosen
     let tmdbLoading = false;
 
+    const SHORT_KEYS = ['bestanimatedshortfilm', 'bestliveactionshort', 'bestdocumentaryshort',
+      'shortlistAnimatedShort', 'shortlistLiveActionShort', 'shortlistDocumentaryShort'];
+    const DOCUMENTARY_KEYS = ['bestdocumentaryfeature', 'bestdocumentaryshort',
+      'shortlistDocumentaryFeature', 'shortlistDocumentaryShort'];
+    const ANIMATION_KEYS = ['bestanimatedfeature', 'bestanimatedshortfilm', 'shortlistAnimatedShort'];
+
     function plainTitle(text) {
       return String(text || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase()
         .replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -1465,6 +1471,14 @@
       if (!year) flags.push('No release date');
       else if (year < ceremony - 2 || year > ceremony) flags.push(`Released ${year}`);
       if (films.some(other => other !== film && other.tmdbId === film.tmdbId)) flags.push('Same ID as another film');
+
+      // A film with the right title can still be the wrong film. Its length
+      // and genre should fit the categories it is in.
+      const inAny = keys => keys.some(key => film[key] === true);
+      const genres = info.genres || [];
+      if (inAny(SHORT_KEYS) && info.runtime > 45) flags.push(`${info.runtime} min, not a short`);
+      if (inAny(DOCUMENTARY_KEYS) && genres.length && !genres.includes('Documentary')) flags.push('Not a documentary on TMDB');
+      if (inAny(ANIMATION_KEYS) && genres.length && !genres.includes('Animation')) flags.push('Not animation on TMDB');
       return flags;
     }
 
