@@ -176,6 +176,7 @@ function summarize(movie) {
     director: director ? director.name : null,
     runtime: movie.runtime || null,
     genres: (movie.genres || []).map(genre => genre.name),
+    fullOverview: movie.overview || '',
     overview: movie.overview ? movie.overview.substring(0, 150) + (movie.overview.length > 150 ? '...' : '') : '',
     poster: movie.poster_path ? `https://image.tmdb.org/t/p/w185${movie.poster_path}` : null
   };

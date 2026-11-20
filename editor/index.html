@@ -425,6 +425,16 @@
       color: rgba(255,255,255,0.8);
     }
 
+    /* What the TMDB ID points to, in Film Mode */
+    .match-panel { display: flex; gap: 1.25rem; background: #16213e; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; max-width: 760px; }
+    .match-panel img, .match-panel .no-poster { width: 130px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; background: #0f3460; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #666; font-size: 0.8rem; }
+    .match-text strong { font-size: 1.1rem; }
+    .match-text p { color: #ccc; font-size: 0.9rem; line-height: 1.45; margin: 0.5rem 0 0.75rem; }
+    .match-facts { color: #e94560; font-size: 0.9rem; margin-top: 0.2rem; }
+    .match-dim { color: #aaa; }
+    .match-bad { color: #ff6b6b; }
+    .match-flag { display: inline-block; font-size: 0.75rem; font-weight: 600; background: #ffb347; color: #1a1a2e; border-radius: 3px; padding: 0.1rem 0.4rem; margin: 0 0.3rem 0.6rem 0; }
+
     /* TMDB Check grid */
     .check-bar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
     .check-bar h2 { color: #e94560; margin: 0; }
@@ -781,6 +791,8 @@
       editor.innerHTML = `
         <h2>${esc(film.title)}</h2>
 
+        <div class="match-panel" id="matchPanel">${renderMatchPanel(film)}</div>
+
         <div class="form-group">
           <label>Title</label>
           <input type="text" value="${esc(film.title)}" onchange="updateField('title', this.value.trim())">
@@ -788,7 +800,7 @@
 
         <div class="form-group">
           <label>TMDB ID</label>
-          <input type="number" value="${film.tmdbId || ''}" onchange="updateField('tmdbId', parseInt(this.value) || null)">
+          <input type="number" value="${film.tmdbId || ''}" onchange="updateField('tmdbId', parseInt(this.value) || null); refreshMatchPanel()">
         </div>
 
         <div class="section-title">Nominations</div>
@@ -841,6 +853,66 @@
           <button class="secondary" onclick="deleteFilm()">Delete Film</button>
         </div>
       `;
+      refreshMatchPanel();
+    }
+
+    // What the film's TMDB ID points to, shown so a wrong match is obvious.
+    // It is only displayed: none of it is saved.
+    function renderMatchPanel(film) {
+      if (!film.tmdbId) {
+        return `
+          <div class="match-text">
+            <strong class="match-bad">No TMDB ID</strong>
+            <p>The app would guess this film from its title.</p>
+            <button onclick="changeMatch()">Find on TMDB</button>
+          </div>`;
+      }
+      if (!(film.tmdbId in tmdbInfo)) return '<div class="match-text"><p>Asking TMDB...</p></div>';
+      const info = tmdbInfo[film.tmdbId];
+      if (!info || info.error) {
+        return `
+          <div class="match-text">
+            <strong class="match-bad">TMDB ID ${Number(film.tmdbId)} was not found</strong>
+            <p>The app cannot load a poster or details for this film.</p>
+            <button onclick="changeMatch()">Find on TMDB</button>
+          </div>`;
+      }
+      const flags = tmdbFlags(film);
+      return `
+        ${info.poster ? `<img src="${esc(info.poster)}" alt="">` : '<div class="no-poster">No poster</div>'}
+        <div class="match-text">
+          <strong>${esc(info.title)}</strong>${info.originalTitle ? ` <span class="match-dim">(${esc(info.originalTitle)})</span>` : ''}
+          <div class="match-facts">${esc(info.year || 'No date')} &middot; ${esc(info.director || 'No director')}${info.runtime ? ` &middot; ${Number(info.runtime)} min` : ''}${(info.genres || []).length ? ` &middot; ${esc(info.genres.join(', '))}` : ''}</div>
+          <p>${esc(info.fullOverview || info.overview || 'No description on TMDB.')}</p>
+          ${flags.map(flag => `<span class="match-flag">${esc(flag)}</span>`).join('')}
+          <div><button class="secondary" onclick="changeMatch()">Change match</button></div>
+        </div>`;
+    }
+
+    async function refreshMatchPanel() {
+      const film = films.find(f => f.id === selectedFilmId);
+      const panel = document.getElementById('matchPanel');
+      if (!film || !panel) return;
+      panel.innerHTML = renderMatchPanel(film);
+      if (film.tmdbId && !(film.tmdbId in tmdbInfo)) {
+        try {
+          const data = await fetch(`/api/tmdb/films?ids=${film.tmdbId}`).then(r => r.json());
+          if (data.films) Object.assign(tmdbInfo, data.films);
+        } catch (e) {
+          showStatus('TMDB: ' + e.message, 'error');
+          return;
+        }
+        // Only redraw if the same film is still open.
+        if (selectedFilmId === film.id && document.getElementById('matchPanel')) {
+          document.getElementById('matchPanel').innerHTML = renderMatchPanel(film);
+        }
+      }
+    }
+
+    // Opens the TMDB Check picker for the film being edited.
+    function changeMatch() {
+      tmdbPickingFilmId = selectedFilmId;
+      setMode('tmdb');
     }
 
     function renderArrayEditor(field, items) {
