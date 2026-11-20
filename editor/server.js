@@ -205,6 +205,172 @@ app.put('/api/seasons/:year', (req, res) => {
   }
 });
 
+// ---- Ceremony: winners and the ceremony start time ----
+// The app listens to years/{year}/winners in the Realtime Database and shows
+// each winner the moment it is written. Anyone can read winners, so this
+// screen works read-only with just the database URL. Writing needs a service
+// account key kept on this Mac (editor/service-account.json, gitignored);
+// requests signed with it are not subject to the database rules.
+
+const crypto = require('crypto');
+
+const FIREBASE_DATABASE_URL = (process.env.FIREBASE_DATABASE_URL || '').replace(/\/+$/, '');
+const SERVICE_ACCOUNT_PATH = process.env.FIREBASE_SERVICE_ACCOUNT
+  ? path.resolve(__dirname, process.env.FIREBASE_SERVICE_ACCOUNT)
+  : path.join(__dirname, 'service-account.json');
+const TEST_YEAR = '9999';
+
+// The category names the app uses as keys. They must match exactly.
+const WINNER_CATEGORIES = new Set([
+  'Best Picture', 'Best Director', 'Best Actor', 'Best Actress', 'Best Supporting Actor',
+  'Best Supporting Actress', 'Best Original Screenplay', 'Best Adapted Screenplay',
+  'Best Animated Feature', 'Best Animated Short Film', 'Best International Feature',
+  'Best Documentary Feature', 'Best Documentary Short', 'Best Cinematography',
+  'Best Film Editing', 'Best Production Design', 'Best Costume Design',
+  'Best Makeup and Hairstyling', 'Best Sound', 'Best Visual Effects', 'Best Original Score',
+  'Best Original Song', 'Best Live Action Short', 'Best Casting'
+]);
+
+function loadServiceAccount() {
+  if (!fs.existsSync(SERVICE_ACCOUNT_PATH)) return null;
+  const account = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_PATH, 'utf8'));
+  if (!account.client_email || !account.private_key) throw new Error('The service account file is missing client_email or private_key');
+  return account;
+}
+
+// A short-lived Google access token for the service account, signed here
+// with the key so no extra packages are needed.
+let cachedToken = null;
+async function accessToken() {
+  if (cachedToken && cachedToken.expires > Date.now() + 60_000) return cachedToken.value;
+  const account = loadServiceAccount();
+  if (!account) return null;
+  const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const now = Math.floor(Date.now() / 1000);
+  const unsigned = `${encode({ alg: 'RS256', typ: 'JWT' })}.${encode({
+    iss: account.client_email,
+    scope: 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/firebase.database',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600
+  })}`;
+  const signature = crypto.createSign('RSA-SHA256').update(unsigned).sign(account.private_key).toString('base64url');
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${unsigned}.${signature}` })
+  });
+  const data = await response.json();
+  if (!response.ok || !data.access_token) throw new Error(`Google did not accept the service account key (${data.error_description || data.error || response.status})`);
+  cachedToken = { value: data.access_token, expires: Date.now() + data.expires_in * 1000 };
+  return cachedToken.value;
+}
+
+async function databaseRequest(method, dbPath, body) {
+  if (!FIREBASE_DATABASE_URL) throw new Error('FIREBASE_DATABASE_URL is not set in editor/.env');
+  const token = await accessToken();
+  if (method !== 'GET' && !token) throw new Error('No service account key, so the editor can only read');
+  const response = await fetch(`${FIREBASE_DATABASE_URL}/${dbPath}.json`, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error((data && data.error) || `The database answered ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+
+// A finished season's winners are history. Refuse to change them from here,
+// so a slip on the season menu cannot rewrite last year's results.
+const ARCHIVE_AFTER_DAYS = 30;
+function refuseIfArchived(year, res) {
+  if (year === TEST_YEAR) return false;
+  const season = readManifest().years.find(y => y.id === year);
+  if (!season) {
+    res.status(404).json({ error: `Season ${year} is not in the manifest` });
+    return true;
+  }
+  const ceremony = Date.parse(season.ceremonyDate);
+  if (Date.now() - ceremony > ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000) {
+    res.status(403).json({ error: `Season ${year} ended more than ${ARCHIVE_AFTER_DAYS} days ago, so its results are locked` });
+    return true;
+  }
+  return false;
+}
+
+function ceremonyYear(req, res) {
+  const year = req.params.year;
+  if (!YEAR_PATTERN.test(year)) {
+    res.status(400).json({ error: 'Year must be four digits' });
+    return null;
+  }
+  return year;
+}
+
+// Current winners and start time for a season (or for the test year 9999).
+app.get('/api/ceremony/:year', async (req, res) => {
+  const year = ceremonyYear(req, res);
+  if (!year) return;
+  let canWrite = false, keyError = null;
+  try { canWrite = Boolean(loadServiceAccount()); } catch (e) { keyError = e.message; }
+  const status = { hasDatabaseUrl: Boolean(FIREBASE_DATABASE_URL), canWrite, keyError };
+  if (!FIREBASE_DATABASE_URL) return res.json({ ...status, winners: {}, ceremonyStart: null });
+  try {
+    const winners = (await databaseRequest('GET', `years/${year}/winners`)) || {};
+    // The start time is not readable by everyone for every season.
+    let ceremonyStart = null, ceremonyStarted = null;
+    try { ceremonyStart = await databaseRequest('GET', `years/${year}/ceremonyStart`); } catch (e) { /* read-only without a key */ }
+    if (year === TEST_YEAR) {
+      try { ceremonyStarted = await databaseRequest('GET', `years/${year}/ceremonyStarted`); } catch (e) { /* same */ }
+    }
+    res.json({ ...status, winners, ceremonyStart, ceremonyStarted });
+  } catch (e) {
+    res.status(502).json({ ...status, error: e.message });
+  }
+});
+
+// Announce a winner, or clear one with winner: null.
+app.put('/api/ceremony/:year/winner', async (req, res) => {
+  const year = ceremonyYear(req, res);
+  if (!year) return;
+  const { category, winner } = req.body;
+  if (!WINNER_CATEGORIES.has(category)) return res.status(400).json({ error: 'Unknown category' });
+  if (winner !== null && (typeof winner !== 'string' || !winner.trim())) {
+    return res.status(400).json({ error: 'The winner must be a name, or null to clear it' });
+  }
+  if (refuseIfArchived(year, res)) return;
+  try {
+    await databaseRequest('PUT', `years/${year}/winners/${encodeURIComponent(category)}`, winner === null ? null : winner.trim());
+    res.json({ success: true });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+// Set or clear the ceremony start. For a real season this is a time in
+// milliseconds, after which pool ballots can no longer change. The test year
+// uses a simple started flag instead.
+app.put('/api/ceremony/:year/start', async (req, res) => {
+  const year = ceremonyYear(req, res);
+  if (!year) return;
+  const { timestamp } = req.body;
+  if (timestamp !== null && !(Number.isInteger(timestamp) && timestamp > 0)) {
+    return res.status(400).json({ error: 'The start must be a time in milliseconds, or null to clear it' });
+  }
+  if (refuseIfArchived(year, res)) return;
+  try {
+    if (year === TEST_YEAR) await databaseRequest('PUT', `years/${year}/ceremonyStarted`, timestamp !== null);
+    else await databaseRequest('PUT', `years/${year}/ceremonyStart`, timestamp);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
 // ---- TMDB ----
 // Used only to help choose the right film and to show what an ID points to.
 // Nothing fetched here is written to the data files: they hold the TMDB ID

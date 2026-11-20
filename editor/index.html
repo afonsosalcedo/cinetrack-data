@@ -456,6 +456,30 @@
     .paste-fix { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
     .paste-fix select, .paste-fix input { width: 100%; font-size: 0.8rem; padding: 0.3rem 0.5rem; }
 
+    /* Ceremony */
+    .ceremony-banner { background: #0f3460; border-radius: 6px; padding: 0.6rem 1rem; margin-bottom: 0.75rem; }
+    .ceremony-banner.live { background: #9d0208; }
+    .ceremony-notice { background: #16213e; border-left: 3px solid #ffb347; border-radius: 6px; padding: 0.6rem 1rem; margin-bottom: 0.75rem; font-size: 0.9rem; }
+    .ceremony-notice.bad { border-left-color: #ff6b6b; }
+    .ceremony-start { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .ceremony-start button { padding: 0.3rem 0.7rem; font-size: 0.85rem; }
+    .ceremony-current { display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: #2d6a4f; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; }
+    .ceremony-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.6rem; }
+    .ceremony-nominee { display: flex; align-items: center; gap: 0.75rem; text-align: left; background: #16213e; border: 2px solid transparent; padding: 0.6rem 0.8rem; font-weight: 400; }
+    .ceremony-nominee:hover { background: #0f3460; border-color: #e94560; }
+    .ceremony-nominee.chosen { border-color: #e94560; background: #0f3460; }
+    .ceremony-nominee.winner { border-color: #5fd38d; }
+    .ceremony-nominee span { display: block; }
+    .ceremony-confirm { background: #16213e; border: 2px solid #e94560; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1rem; }
+    .ceremony-confirm .row { display: flex; gap: 0.5rem; margin: 0.75rem 0 0.5rem; }
+    .ceremony-confirm code { background: #0f3460; padding: 0.15rem 0.4rem; border-radius: 3px; }
+    .copy-row { display: flex; align-items: center; gap: 0.6rem; margin: 0.5rem 0; }
+    .copy-row button { padding: 0.2rem 0.6rem; font-size: 0.8rem; }
+    button.live, .mode-toggle button.active.live { background: #d00000; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .cat-winner { display: block; font-size: 0.75rem; font-weight: 400; color: #5fd38d; }
+    .cat-item.active .cat-winner { color: #fff; }
+
     /* Season dialog */
     dialog { background: #16213e; color: #eee; border: 1px solid #0f3460; border-radius: 10px; padding: 1.5rem; width: min(520px, 92vw); }
     dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
@@ -644,6 +668,7 @@
       <button id="filmModeBtn" class="active" onclick="setMode('film')">Film Mode</button>
       <button id="nomModeBtn" onclick="setMode('nomination')">Shortlists &amp; Nominations</button>
       <button id="tmdbModeBtn" onclick="setMode('tmdb')">TMDB Check</button>
+      <button id="ceremonyModeBtn" onclick="setMode('ceremony')">Ceremony</button>
     </div>
     <span id="statusMsg" class="status" style="display: none;"></span>
   </header>
@@ -759,6 +784,10 @@
         document.getElementById('editor').innerHTML = '<div class="empty-state">Select a film to edit</div>';
       } else if (currentMode === 'tmdb') {
         renderTmdbMode();
+      } else if (currentMode === 'ceremony') {
+        ceremony.data = null;
+        ceremony.chosen = null;
+        renderCeremonyMode();
       } else {
         renderNominationMode();
       }
@@ -769,6 +798,8 @@
       document.getElementById('filmModeBtn').classList.toggle('active', mode === 'film');
       document.getElementById('nomModeBtn').classList.toggle('active', mode === 'nomination');
       document.getElementById('tmdbModeBtn').classList.toggle('active', mode === 'tmdb');
+      document.getElementById('ceremonyModeBtn').classList.toggle('active', mode === 'ceremony');
+      if (mode !== 'ceremony') stopCeremonyPolling();
 
       const container = document.getElementById('mainContainer');
       const sidebar = document.getElementById('sidebar');
@@ -786,6 +817,12 @@
         container.classList.add('nomination-mode');
         sidebar.style.display = 'none';
         renderTmdbMode();
+      } else if (mode === 'ceremony') {
+        container.classList.add('nomination-mode');
+        sidebar.style.display = 'none';
+        ceremony.data = null;
+        ceremony.chosen = null;
+        renderCeremonyMode();
       }
     }
 
@@ -1409,6 +1446,7 @@
   </script>
   <script src="category-entry.js"></script>
   <script src="seasons.js"></script>
+  <script src="ceremony.js"></script>
   <script>init();</script>
 </body>
 </html>
