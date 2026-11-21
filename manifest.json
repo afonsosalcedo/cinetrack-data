@@ -1,8 +1,17 @@
 {
-  "version": "1.1.13",
-  "lastUpdated": "2026-11-20T16:52:07.706Z",
-  "changelog": "Heartbeat (2025)",
+  "version": "1.1.14",
+  "lastUpdated": "2026-11-21T03:13:06.274Z",
+  "changelog": "Added the 2027 season",
   "years": [
+    {
+      "id": "2027",
+      "filename": "oscars2027.json",
+      "nominationsAnnounced": false,
+      "filmCount": 0,
+      "ceremonyDate": "2027-03-14T16:00:00-07:00",
+      "nominationsDate": "2027-01-21T05:30:00-08:00",
+      "shortlistDate": "2026-12-15T09:00:00-08:00"
+    },
     {
       "id": "2026",
       "filename": "oscars2026.json",
