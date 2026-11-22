@@ -10,7 +10,79 @@
       "filmCount": 0,
       "ceremonyDate": "2027-03-14T16:00:00-07:00",
       "nominationsDate": "2027-01-21T05:30:00-08:00",
-      "shortlistDate": "2026-12-15T09:00:00-08:00"
+      "shortlistDate": "2026-12-15T09:00:00-08:00",
+      "starterFilms": [
+        {
+          "tmdbId": 1368337,
+          "title": "The Odyssey",
+          "posterPath": "/5rhTDKUhPYvpdQIijFIs5VoWsON.jpg"
+        },
+        {
+          "tmdbId": 1765072,
+          "title": "You Can See Everything",
+          "posterPath": "/mVh3qkw2NUFxWWyF0G1hg2Wh0K5.jpg"
+        },
+        {
+          "tmdbId": 891621,
+          "title": "Wild Horse Nine",
+          "posterPath": "/dNJFRtVg3xLQ7dbNIQ55cmmIniD.jpg"
+        },
+        {
+          "tmdbId": 1248832,
+          "title": "Digger",
+          "posterPath": "/1ATXKrIPJyKNwnJ6lcG088Sa6zi.jpg"
+        },
+        {
+          "tmdbId": 1585239,
+          "title": "Club Kid",
+          "posterPath": "/o1qMU0ZB5XDX8IXJFFu3AkhOqjh.jpg"
+        },
+        {
+          "tmdbId": 950028,
+          "title": "The Invite",
+          "posterPath": "/b7Dr8Chzse8VagexAporUu2RtLx.jpg"
+        },
+        {
+          "tmdbId": 687163,
+          "title": "Project Hail Mary",
+          "posterPath": "/iOb2fjXLbpJgyQXe46n1WtGCnaa.jpg"
+        },
+        {
+          "tmdbId": 1288069,
+          "title": "Tenzing",
+          "posterPath": "/eI0QW02PYqhnmIvLRdn9vrfVVP7.jpg"
+        },
+        {
+          "tmdbId": 1330021,
+          "title": "Remarkably Bright Creatures",
+          "posterPath": "/9HcEqn3D4J6b2Z0jK54id9nA0fr.jpg"
+        },
+        {
+          "tmdbId": 1084244,
+          "title": "Toy Story 5",
+          "posterPath": "/sfQtVlIHljToOwYjhe21KPGzZWK.jpg"
+        },
+        {
+          "tmdbId": 1327819,
+          "title": "Hoppers",
+          "posterPath": "/xjtWQ2CL1mpmMNwuU5HeS4Iuwuu.jpg"
+        },
+        {
+          "tmdbId": 791523,
+          "title": "Wildwood",
+          "posterPath": "/snFM00mpNAfUzUtkdEW0uDEvXA0.jpg"
+        },
+        {
+          "tmdbId": 1755291,
+          "title": "NAZA",
+          "posterPath": "/cbxiZ1l21KUATu2KKQQ8J8fJhpe.jpg"
+        },
+        {
+          "tmdbId": 1422041,
+          "title": "La Bola Negra",
+          "posterPath": "/7HwFQTMghL6HOvzEnXYUvyuZXeh.jpg"
+        }
+      ]
     },
     {
       "id": "2026",
